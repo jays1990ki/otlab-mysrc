@@ -1,0 +1,6 @@
+<%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<div class="section-heading"><p>เลือกแม่แบบการจำลอง แล้วปรับเนื้อหาและระดับเป้าหมาย</p><a class="button" href="/admin/labs/new">+ เพิ่มแล็บ</a></div>
+<div class="lab-grid"><% for(const lab of labs) { %>
+<section class="lab-card"><img src="/assets/images/stage-<%= lab.image_id %>.webp" alt=""><div><span class="chip"><%= lab.archived?'เก็บถาวร':lab.published?'เผยแพร่':'ฉบับร่าง' %></span><h2><%= lab.title %></h2><p><%= lab.summary %></p><div class="actions"><a href="/admin/labs/<%= lab.id %>/edit">แก้ไข</a><% if(!lab.archived) { %><a href="/lab/<%= lab.id %>">ทดลองแล็บ ↗</a><% } %></div><form action="/admin/labs/<%= lab.id %>/archive" method="post" data-confirm="ยืนยันเปลี่ยนสถานะจัดเก็บแล็บนี้?"><input type="hidden" name="csrf" value="<%= csrf %>"><button class="button quiet small"><%= lab.archived?'นำกลับมาเป็นฉบับร่าง':'เก็บแล็บถาวร' %></button></form></div></section>
+<% } %></div>
+<%- include('../partials/foot') %>

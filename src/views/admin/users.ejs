@@ -1,0 +1,15 @@
+<%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<details class="panel"><summary>เพิ่มบัญชีผู้เรียน</summary><form action="/admin/users" method="post"><input type="hidden" name="csrf" value="<%= csrf %>"><div class="form-grid">
+<label>ชื่อผู้ใช้<input name="username" pattern="[a-z0-9_.-]{3,48}" required maxlength="48"></label>
+<label>ชื่อแสดงผล<input name="display_name" required maxlength="120"></label>
+<label>รหัสผ่านเริ่มต้น<input name="password" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label></div><button class="button">สร้างบัญชี</button></form></details>
+<form method="get" class="search"><input aria-label="ค้นหาผู้ใช้" name="q" value="<%= search %>" placeholder="ค้นหาชื่อผู้ใช้"><button class="button quiet">ค้นหา</button></form>
+<% for(const person of users) { %>
+<section class="panel user-row"><div><h2><%= person.display_name %></h2><span class="muted"><%= person.username %> · <%= person.role %></span><span class="chip"><%= person.active?'Active':'Inactive' %></span></div>
+<% if(person.role==='learner') { %><details><summary>จัดการบัญชี</summary>
+<form action="/admin/users/<%= person.id %>" method="post"><input type="hidden" name="csrf" value="<%= csrf %>">
+<label>ชื่อแสดงผล<input name="display_name" value="<%= person.display_name %>" maxlength="120"></label><button class="button quiet" name="op" value="rename">บันทึกชื่อ</button></form>
+<form action="/admin/users/<%= person.id %>" method="post"><input type="hidden" name="csrf" value="<%= csrf %>"><label>รหัสผ่านใหม่<input type="password" name="password" required minlength="12" maxlength="128" autocomplete="new-password"></label><button class="button quiet" name="op" value="reset">ตั้งรหัสผ่านใหม่</button></form>
+<form action="/admin/users/<%= person.id %>" method="post" data-confirm="ยืนยันเปลี่ยนสถานะบัญชีนี้?"><input type="hidden" name="csrf" value="<%= csrf %>"><button class="button warning" name="op" value="toggle"><%= person.active?'ระงับบัญชี':'เปิดบัญชี' %></button></form>
+</details><% } %></section><% } %><p class="hint">แสดงผลสูงสุด 200 บัญชีต่อการค้นหา</p>
+<%- include('../partials/foot') %>

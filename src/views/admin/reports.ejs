@@ -1,0 +1,6 @@
+<%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<div class="section-heading"><form method="get" class="search"><input name="q" aria-label="ค้นหารายงาน" placeholder="ค้นหาผู้ใช้หรือชื่อแล็บ" value="<%= search %>"><button class="button quiet">ค้นหา</button></form><a class="button" href="/admin/reports.csv?q=<%= encodeURIComponent(search) %>">ดาวน์โหลด CSV</a></div>
+<section class="panel table-wrap"><table><thead><tr><th>ผู้เรียน</th><th>แล็บ</th><th>รุ่น</th><th>สถานะ</th><th>คะแนน</th><th>เริ่ม (เวลาไทย)</th></tr></thead><tbody>
+<% for(const row of rows) { %><tr><td><%= row.display_name %><br><span class="muted"><%= row.username %></span></td><td><%= row.title %></td><td><%= row.revision %></td><td><%= row.status %></td><td><%= row.score %>%</td><td><time data-utc="<%= row.started_at %>"><%= row.started_at %> UTC</time></td></tr><% } %>
+</tbody></table><p class="hint">รายการและ CSV แสดงสูงสุด 1,000 รอบล่าสุดตามคำค้น เวลาใน CSV เป็น UTC</p></section>
+<%- include('../partials/foot') %>

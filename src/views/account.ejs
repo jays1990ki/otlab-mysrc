@@ -1,0 +1,7 @@
+<%- include('partials/head') %>
+<section class="panel narrow"><div class="eyebrow">MY ACCOUNT</div><h1>เปลี่ยนรหัสผ่าน</h1><p>เมื่อเปลี่ยนสำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง</p>
+<form method="post"><input type="hidden" name="csrf" value="<%= csrf %>">
+<label>รหัสผ่านปัจจุบัน<input type="password" name="current_password" required maxlength="128" autocomplete="current-password"></label>
+<label>รหัสผ่านใหม่ 12–128 ตัวอักษร<input type="password" name="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
+<label>ยืนยันรหัสผ่านใหม่<input type="password" name="confirm_password" required minlength="12" maxlength="128" autocomplete="new-password"></label><button class="button">บันทึกรหัสผ่าน</button></form></section>
+<%- include('partials/foot') %>

@@ -1,0 +1,51 @@
+<%- include('partials/head') %>
+<a href="/labs">← ห้องปฏิบัติการ</a>
+<div class="page-heading"><div><div class="eyebrow">OT / ICS SIMULATION</div><h1><%= lab.title %></h1></div><span class="chip"><%= user.role==='admin'?'ADMIN PREVIEW':'TRAINING MODE' %></span></div>
+<div id="simulator" data-lab="<%= lab.id %>" data-type="<%= lab.simulator %>" data-target="<%= lab.target %>">
+<div class="lab-workspace">
+<section class="plant panel"><div class="panel-heading"><span>PROCESS VIEW</span><span id="run-status">กำลังเชื่อมต่อ…</span></div>
+<div class="plant-scene"><img src="/assets/images/stage-<%= lab.image_id %>.webp" alt="ฉากโรงงานอุตสาหกรรม"><canvas id="plant-canvas" width="880" height="420" aria-label="แผนภาพสถานะสดของแบบจำลอง" role="img"></canvas></div>
+<div id="telemetry" class="telemetry" aria-live="polite"></div>
+<div class="scene-actions"><button type="button" id="tick" class="button">เดินเวลา +1 รอบ</button><span>หนึ่งรอบ = หนึ่งขั้นของแบบจำลอง</span></div>
+<div class="chart-wrap"><canvas id="trend" width="800" height="130" aria-label="กราฟระดับน้ำล่าสุด" role="img"></canvas></div>
+</section>
+<section class="operator panel"><div class="panel-heading"><span>OPERATOR CONSOLE</span><span class="status-dot"></span></div>
+<h2>ภารกิจ</h2><p class="mission"><%= lab.mission %></p>
+<% if(['sensor','scada','build'].includes(lab.simulator)) { %><div class="target">ระดับเป้าหมาย <strong><%= lab.target %>%</strong></div><% } %>
+<div class="controls">
+<% if(lab.simulator==='classify') { %>
+<p class="hint">เลือกอุปกรณ์ แล้วเลือกหมวดหมู่</p>
+<div class="device-list"><% for(const [i,device] of devices.entries()) { %><button type="button" class="device" data-device="<%= i %>"><%= device.name %><span class="assignment" id="assignment-<%= i %>">ยังไม่ได้จัดหมวด</span></button><% } %></div>
+<div class="button-grid"><% for(const cat of ['IT','OT','IoT','IIoT']) { %><button type="button" class="button quiet" data-category="<%= cat %>"><%= cat %></button><% } %></div>
+<% } %>
+<% if(lab.simulator==='sensor') { %><button type="button" class="button full" data-action="valve" id="valve-control">เปิดวาล์ว</button><p class="hint">เปิดวาล์วแล้วกดเดินเวลา น้ำเพิ่มทีละ 5%</p><% } %>
+<% if(lab.simulator==='plc') { %>
+<div class="button-grid"><button type="button" class="button" data-action="start">START</button><button type="button" class="button quiet" data-action="stop">STOP</button></div>
+<button type="button" class="toggle" data-action="source">น้ำต้นทาง <strong id="source-state"></strong></button>
+<button type="button" class="toggle" data-action="full">ถังรับเต็ม <strong id="full-state"></strong></button>
+<button type="button" class="toggle emergency" data-action="emergency">EMERGENCY STOP <strong id="emergency-state"></strong></button>
+<% } %>
+<% if(lab.simulator==='hmi') { %>
+<div class="button-grid"><button type="button" class="button" data-action="start">START PUMP</button><button type="button" class="button quiet" data-action="stop">STOP</button></div>
+<button type="button" class="toggle" data-action="feedback">Pump feedback <strong id="feedback-state"></strong></button>
+<button type="button" class="button warning full" data-action="ack">ACKNOWLEDGE ALARM</button>
+<% } %>
+<% if(lab.simulator==='scada') { %>
+<label>ระดับน้ำสถานี A <output id="level-output">20%</output><input type="range" id="station-level" min="0" max="100" step="5" value="20"></label>
+<button type="button" class="toggle" data-action="connection">RTU communication <strong id="connection-state"></strong></button>
+<button type="button" class="button full" data-action="send">ส่งข้อมูลเข้า SCADA</button>
+<% } %>
+<% if(lab.simulator==='build') { %>
+<p class="hint">เลือกขั้วส่ง แล้วเลือกขั้วรับเพื่อเชื่อมต่อ</p>
+<div class="wiring"><div><% for(const [key,label] of [['sensor','Sensor output'],['plc','PLC output'],['hmi','HMI command']]) { %><button type="button" class="terminal" data-from="<%= key %>"><%= label %> ●</button><% } %></div><div><% for(const dest of ['PLC input','Pump','PLC','HMI']) { %><button type="button" class="terminal" data-to="<%= dest %>">● <%= dest %></button><% } %></div></div>
+<div id="wire-list"></div><button type="button" class="button full" data-action="power">เปิด / ปิดระบบ</button>
+<% } %>
+</div><div id="feedback" class="feedback" role="status" aria-live="polite"></div><ul id="checks" class="checklist"></ul>
+<button type="button" id="restart" class="button quiet full">เริ่มรอบใหม่</button></section>
+</div></div>
+<section class="lesson panel"><div class="eyebrow">เรียนรู้ก่อนทดลอง</div><h2><%= lab.title %></h2><p class="pre-line"><%= lab.lesson %></p></section>
+<section class="panel"><h2>ประวัติการฝึกแล็บนี้</h2><div class="table-wrap"><table><thead><tr><th>เริ่มเมื่อ (เวลาไทย)</th><th>รุ่นเนื้อหา</th><th>ผล</th><th>คะแนน</th></tr></thead><tbody>
+<% for(const run of runs) { %><tr><td><time data-utc="<%= run.started_at %>"><%= run.started_at %> UTC</time></td><td><%= run.revision %></td><td><%= run.status %></td><td><%= run.score %>%</td></tr><% } %>
+</tbody></table></div></section>
+<script src="/assets/js/simulator.js" defer></script>
+<%- include('partials/foot') %>

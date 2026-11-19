@@ -1,0 +1,6 @@
+<%- include('partials/head') %>
+<div class="page-heading"><div><div class="eyebrow">MY LEARNING</div><h1>ผลการฝึก</h1><p><%= user.role==='admin'?'ประวัติการทดสอบในโหมด Admin':'ประวัติการฝึกของ '+user.display_name %></p></div></div>
+<section class="panel table-wrap"><table><thead><tr><th>แล็บ</th><th>เริ่มเมื่อ (เวลาไทย)</th><th>รุ่นเนื้อหา</th><th>สถานะ</th><th>คะแนน</th><th>คำสั่ง</th></tr></thead><tbody><% for(const run of runs) { %>
+<tr><td><a href="/lab/<%= run.lab_id %>"><%= run.title %></a></td><td><time data-utc="<%= run.started_at %>"><%= run.started_at %> UTC</time></td><td><%= run.revision %></td><td><span class="chip"><%= run.status==='passed'?'ผ่าน':run.status==='active'?'กำลังฝึก':'จบรอบก่อนผ่าน' %></span></td><td><%= run.score %>%</td><td><%= run.actions %></td></tr>
+<% } %></tbody></table><% if(!runs.length) { %><p>ยังไม่มีผลการฝึก <a href="/labs">เริ่มฝึก →</a></p><% } %></section>
+<%- include('partials/foot') %>

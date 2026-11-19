@@ -1,0 +1,6 @@
+<%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<div class="stats-grid"><% for(const [value,label] of [[stats.learners,'ผู้เรียน'],[stats.labs,'แล็บ'],[stats.passes,'รอบที่ผ่าน'],[stats.online,'ผู้เรียนใช้งานใน 5 นาที']]) { %><section class="panel stat"><strong><%= value %></strong><span><%= label %></span></section><% } %></div>
+<section class="panel"><h2>ความคืบหน้ารายผู้เรียน</h2><div class="table-wrap"><table><thead><tr><th>ผู้ใช้</th><th>ชื่อแสดงผล</th><th>บัญชี</th><th>แล็บปัจจุบันที่ผ่าน</th><th>ใช้งานล่าสุด</th></tr></thead><tbody>
+<% for(const person of progress) { %><tr><td><%= person.username %></td><td><%= person.display_name %></td><td><%= person.active?'Active':'Inactive' %></td><td><%= person.completed %></td><td><% if(person.last_seen) { %><time data-epoch="<%= person.last_seen %>">ล่าสุด</time><% } else { %>—<% } %></td></tr><% } %>
+</tbody></table></div><p class="hint">แสดงผู้เรียนล่าสุดสูงสุด 200 บัญชี</p></section>
+<%- include('../partials/foot') %>

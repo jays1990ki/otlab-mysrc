@@ -1,0 +1,6 @@
+<div class="page-heading"><div><div class="eyebrow">ADMIN PORTAL</div><h1><%= title %></h1></div><a class="button quiet" href="/labs">เปิดห้องแล็บ ↗</a></div>
+<nav class="tabs" aria-label="เมนูผู้ดูแล">
+<% for(const [key,label,path] of [['overview','ภาพรวม',''],['users','ผู้ใช้','/users'],['labs','แล็บและเนื้อหา','/labs'],['reports','รายงาน','/reports'],['audit','Logs & History','/audit'],['settings','ตั้งค่า','/settings']]) { %>
+<a class="<%= tab===key?'active':'' %>" href="/admin<%= path %>"><%= label %></a>
+<% } %>
+</nav>

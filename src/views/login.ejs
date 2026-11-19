@@ -1,0 +1,8 @@
+<%- include('partials/head') %>
+<div class="login-layout"><section><div class="eyebrow">OT / ICS BASIC LAB</div><h1>เรียนรู้จาก<br>การลงมือควบคุม</h1><p>ใช้บัญชีที่ผู้ดูแลจัดให้เพื่อเข้าฝึกและบันทึกผล</p><img src="/assets/images/stage-3.webp" alt="PLC และเครื่องจักรจำลอง"></section>
+<section class="panel"><h2>เข้าสู่ระบบ</h2><% if(notice) { %><p role="alert" class="notice danger"><%= notice %></p><% } %>
+<form action="/login" method="post"><input type="hidden" name="login_token" value="<%= nonce %>">
+<label>ชื่อผู้ใช้<input name="username" required maxlength="48" autocomplete="username"></label>
+<label>รหัสผ่าน<input type="password" name="password" required maxlength="128" autocomplete="current-password"></label>
+<button class="button full">เข้าสู่ระบบ →</button></form></section></div>
+<%- include('partials/foot') %>

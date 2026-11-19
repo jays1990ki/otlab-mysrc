@@ -1,0 +1,7 @@
+<%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<form class="panel" method="post"><input type="hidden" name="csrf" value="<%= csrf %>">
+<label>ชื่อระบบ<input name="site_name" value="<%= settings.site_name %>" required maxlength="400"></label>
+<label>ชื่อองค์กร<input name="organization" value="<%= settings.organization %>" required maxlength="400"></label>
+<label>ข้อความหน้าแรก<textarea name="intro" required maxlength="400"><%= settings.intro %></textarea></label><button class="button">บันทึกการตั้งค่า</button></form>
+<section class="panel"><h2>บัญชีผู้ดูแล</h2><a href="/account">เปลี่ยนรหัสผ่านของฉัน →</a></section>
+<%- include('../partials/foot') %>

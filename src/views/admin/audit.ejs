@@ -1,0 +1,5 @@
+<%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<section class="panel table-wrap"><table><thead><tr><th>เวลาไทย</th><th>ผู้ใช้</th><th>กิจกรรม</th><th>รายละเอียด</th></tr></thead><tbody>
+<% for(const row of rows) { %><tr><td><time data-utc="<%= row.created_at %>"><%= row.created_at %> UTC</time></td><td><%= row.actor %></td><td><%= row.action %></td><td><%= row.detail %></td></tr><% } %>
+</tbody></table></section><div class="actions"><% if(p>1) { %><a href="?page=<%= p-1 %>">← ก่อนหน้า</a><% } %><span>หน้า <%= p %></span><% if(rows.length===50) { %><a href="?page=<%= p+1 %>">ถัดไป →</a><% } %></div>
+<%- include('../partials/foot') %>
