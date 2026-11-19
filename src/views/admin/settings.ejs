@@ -1,4 +1,9 @@
 <%- include('../partials/head') %><%- include('../partials/admin-nav') %>
+<section class="panel"><h2>Logo ของระบบ</h2><p>แสดงใน User Portal และหน้าฝึก LAB ทุกแบบ ภายในกรอบสี่เหลี่ยมจัตุรัสขอบมน</p>
+<% if(logoNotice) { %><p role="status"><%= logoNotice %></p><% } %>
+<div class="logo-preview"><% if(logoUrl) { %><img class="brand-logo preview" src="<%= logoUrl %>" alt="Logo ปัจจุบัน"><% } else { %><span id="logo-empty">ยังไม่ได้ตั้งค่า Logo</span><% } %><canvas id="logo-preview" width="160" height="160" hidden aria-label="ตัวอย่าง Logo ใหม่"></canvas></div>
+<form id="logo-form"><label>เลือกไฟล์ Logo<input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" required></label><p class="hint">PNG, JPG หรือ WEBP ขนาดไม่เกิน 2 MB ภาพจะย่อให้อยู่ในกรอบโดยไม่ตัดส่วนของ Logo</p><div class="actions"><button class="button" id="logo-upload" type="submit">อัปโหลด Logo</button><% if(logoUrl) { %><button class="button quiet" id="logo-remove" type="button">ลบ Logo</button><% } %></div><p id="logo-message" role="status" aria-live="polite"></p></form></section>
+<script type="module" src="/assets/js/branding-admin.js"></script>
 <form class="panel" method="post"><input type="hidden" name="csrf" value="<%= csrf %>">
 <label>ชื่อระบบ<input name="site_name" value="<%= settings.site_name %>" required maxlength="400"></label>
 <label>ชื่อองค์กร<input name="organization" value="<%= settings.organization %>" required maxlength="400"></label>

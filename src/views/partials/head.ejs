@@ -8,7 +8,7 @@
 <script type="module" src="/assets/js/covers.js"></script>
 <link rel="stylesheet" href="/assets/css/completion.css">
 </head><body>
-<header class="header"><a href="/" class="brand"><span class="brand-icon">◫</span><span>OT/ICS <b>BASIC LAB</b></span></a>
+<header class="header"><a href="/" class="brand"><% if(logoUrl) { %><img class="brand-logo" src="<%= logoUrl %>" alt="Logo <%= settings.organization %>"><% } else { %><span class="brand-icon">◫</span><% } %><span>OT/ICS <b>BASIC LAB</b></span></a>
 <nav aria-label="เมนูหลัก"><a class="button quiet" href="/labs">กลับหน้าหลัก</a>
 <% if(user) { %><a href="/results">ผลการฝึก</a><% if(user.role==='admin') { %><a href="/admin">Admin Portal</a><% } %>
 <a href="/account"><%= user.display_name %></a>

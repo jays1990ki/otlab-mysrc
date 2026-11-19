@@ -3,7 +3,7 @@ import { referenceTypes } from './services/simulation.js';
 import express from 'express';
 import helmet from 'helmet';
 import { fileURLToPath } from 'node:url';
-import { ready, query, audit } from './db/index.js';
+import { ready, query, first, audit } from './db/index.js';
 import { identify, verifyCsrf } from './services/auth.js';
 import { httpError, token } from './services/security.js';
 import { authRouter } from './routes/auth.js';
@@ -24,10 +24,14 @@ export function createApp() {
     res.set('Cache-Control','no-store');
     res.locals.user=null;
     res.locals.csrf='';
+    res.locals.logoUrl=null;
     res.locals.settings={site_name:'OT/ICS Basic Lab',organization:'ME Corporation',intro:''};
-    res.locals.version='1.6.0';
+    res.locals.version='1.7.0';
     res.locals.labCover=lab=>industrialTypes.has(lab.simulator)||lab.simulator==='conveyor'?'/assets/images/game/industrial-atlas.png':referenceTypes.has(lab.simulator)?'/assets/images/reference-clean/'+lab.simulator+'.png':'/assets/images/stage-'+lab.image_id+'.webp';
     next();
+  });
+  app.get('/branding/logo',async(req,res,next)=>{
+    try{await ready();const logo=await first('SELECT mime,image,digest FROM ot_branding WHERE id=1');if(!logo)return res.status(404).end();res.set({'Content-Type':logo.mime,'Cache-Control':'public, max-age=3600','ETag':'"'+logo.digest+'"','X-Content-Type-Options':'nosniff'});res.send(logo.image);}catch(error){next(error);}
   });
   app.use(express.urlencoded({extended:false,limit:'32kb'}));
   app.use(express.json({limit:'8kb'}));
@@ -35,13 +39,15 @@ export function createApp() {
     try {
       await ready();
       await query('SELECT 1');
-      res.json({status:'ok',version:'1.6.0',database:'connected'});
-    } catch { res.status(503).json({status:'unavailable',version:'1.6.0'}); }
+      res.json({status:'ok',version:'1.7.0',database:'connected'});
+    } catch { res.status(503).json({status:'unavailable',version:'1.7.0'}); }
   });
   app.use(async(req,res,next)=>{
     try {
       await ready();
       res.locals.settings=Object.fromEntries((await query('SELECT setting_key,setting_value FROM ot_settings')).map(row=>[row.setting_key,row.setting_value]));
+      const branding=await first('SELECT digest FROM ot_branding WHERE id=1');
+      res.locals.logoUrl=branding?'/branding/logo?v='+branding.digest:null;
       next();
     } catch(error) {
       console.error('Initialization failed:',error.code || error.message);

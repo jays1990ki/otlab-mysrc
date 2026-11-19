@@ -7,7 +7,7 @@
 <script type="module" src="/assets/js/reference-player.js"></script>
 </head><body>
 <main class="reference-app" id="reference-app" data-lab="<%= lab.id %>" data-type="<%= lab.simulator %>" data-target="<%= lab.target %>">
-<div class="reference-stage" id="reference-stage"><canvas id="reference-canvas" width="1672" height="941" aria-label="<%= lab.title %> ภาพหน้าฝึกที่กดและลากได้"></canvas><div id="reference-hotspots"></div></div>
+<div class="reference-stage" id="reference-stage"><canvas id="reference-canvas" width="1672" height="941" data-branded="<%= logoUrl ? 1 : 0 %>" aria-label="<%= lab.title %> ภาพหน้าฝึกที่กดและลากได้"></canvas><% if(logoUrl) { %><span class="reference-brandmark"><img src="<%= logoUrl %>" alt="Logo <%= settings.organization %>"></span><% } %><div id="reference-hotspots"></div></div>
 <div class="reference-bar">
 <a class="button" href="/labs">กลับหน้าหลัก</a><button id="help">คู่มือ / เป้าหมาย</button><button id="play">⏸ เวลาอัตโนมัติ</button><button id="restart">เริ่มใหม่</button><button id="fullscreen">เต็มจอ</button>
 <span id="reference-feedback" role="status" aria-live="polite">กำลังโหลดภาพหน้าฝึก…</span><span id="reference-score">0%</span><span>v<%= version %></span>

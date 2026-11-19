@@ -22,3 +22,5 @@ dialog::backdrop{background:#03111bca}dialog h1{font-size:25px}.lesson{white-spa
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 
 .reference-bar .button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #70c8d6;border-radius:7px;background:#183b50;color:#eaffff;padding:5px 14px;font-weight:600}.reference-bar .button:hover{background:#24556b}
+
+.reference-brandmark{position:absolute;left:1.914%;top:2.02%;width:4.306%;aspect-ratio:1;display:grid;place-items:center;border:1px solid #78bccb;border-radius:20%;background:#fff;padding:.35%;overflow:hidden;pointer-events:none}.reference-brandmark img{display:block;width:100%;height:100%;object-fit:contain}

@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, raw } from 'express';
+import {validateLogo} from '../services/branding.js';
 import { first, query, transaction, audit } from '../db/index.js';
 import { requireUser, requireAdmin } from '../services/auth.js';
 import { hashPassword, validName, validPassword, httpError } from '../services/security.js';
@@ -131,7 +132,7 @@ adminRouter.get('/audit',async(req,res)=>{
   const rows=await query('SELECT * FROM ot_audit ORDER BY id DESC LIMIT 50 OFFSET '+((p-1)*50));
   res.render('admin/audit',{title:'Logs & History',tab:'audit',rows,p});
 });
-adminRouter.get('/settings',(req,res)=>res.render('admin/settings',{title:'ตั้งค่าระบบ',tab:'settings'}));
+adminRouter.get('/settings',(req,res)=>res.render('admin/settings',{title:'ตั้งค่าระบบ',tab:'settings',logoNotice:req.query.logo==='updated'?'บันทึก Logo เรียบร้อย':req.query.logo==='removed'?'ลบ Logo แล้ว':''}));
 adminRouter.post('/settings',async(req,res)=>{
   const entries=['site_name','intro','organization'].map(key=>[key,String(req.body[key] || '').trim()]);
   if(entries.some(([,value])=>!value || value.length>400)) throw httpError(400,'กรอกข้อมูลให้ครบ ความยาวไม่เกิน 400 ตัวอักษร');
@@ -140,4 +141,17 @@ adminRouter.post('/settings',async(req,res)=>{
     await audit(req.user.username,'SETTINGS_UPDATED','',connection);
   });
   res.redirect('/admin/settings');
+});
+
+adminRouter.post('/branding/logo',raw({type:'image/png',limit:'2mb'}),async(req,res)=>{
+  const logo=validateLogo(req.body);
+  await transaction(async connection=>{
+    await query('INSERT INTO ot_branding(id,mime,image,digest) VALUES(1,?,?,?) ON DUPLICATE KEY UPDATE mime=VALUES(mime),image=VALUES(image),digest=VALUES(digest)',[logo.mime,logo.image,logo.digest],connection);
+    await audit(req.user.username,'LOGO_UPDATED',logo.width+'x'+logo.height,connection);
+  });
+  res.json({logoUrl:'/branding/logo?v='+logo.digest});
+});
+adminRouter.delete('/branding/logo',async(req,res)=>{
+  await transaction(async connection=>{await query('DELETE FROM ot_branding WHERE id=1',[],connection);await audit(req.user.username,'LOGO_REMOVED','',connection);});
+  res.json({removed:true});
 });
