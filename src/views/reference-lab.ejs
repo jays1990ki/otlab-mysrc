@@ -8,7 +8,7 @@
 <main class="reference-app" id="reference-app" data-lab="<%= lab.id %>" data-type="<%= lab.simulator %>" data-target="<%= lab.target %>">
 <div class="reference-stage" id="reference-stage"><canvas id="reference-canvas" width="1672" height="941" aria-label="<%= lab.title %> ภาพหน้าฝึกที่กดและลากได้"></canvas><div id="reference-hotspots"></div></div>
 <div class="reference-bar">
-<a href="/labs">← ห้องแล็บ</a><button id="help">คู่มือ / เป้าหมาย</button><button id="play">⏸ เวลาอัตโนมัติ</button><button id="restart">เริ่มใหม่</button><button id="fullscreen">เต็มจอ</button>
+<a class="button" href="/labs">ห้อง LAB</a><button id="help">คู่มือ / เป้าหมาย</button><button id="play">⏸ เวลาอัตโนมัติ</button><button id="restart">เริ่มใหม่</button><button id="fullscreen">เต็มจอ</button>
 <span id="reference-feedback" role="status" aria-live="polite">กำลังโหลดภาพหน้าฝึก…</span><span id="reference-score">0%</span><span>v<%= version %></span>
 </div>
 <dialog id="reference-guide"><h1><%= lab.title %></h1><p><%= lab.mission %></p><p class="lesson"><%= lab.lesson %></p><p id="step-guide"></p><ul id="reference-checks"></ul><p>ลากด้วยเมาส์หรือนิ้ว หรือใช้ Tab/Enter เลือกต้นทางและปลายทางได้</p><form method="dialog"><button>กลับไปฝึก</button></form></dialog>

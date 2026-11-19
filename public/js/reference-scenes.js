@@ -1,277 +1,76 @@
-const color={cyan:'#4df2f7',green:'#67ff7c',muted:'#8195a4',red:'#ff757a',text:'#f5f9fc'};
+const color={cyan:'#55edf1',green:'#74f5a1',muted:'#a7bacb',red:'#ff858a',text:'#f2f8fc'};
+// Clean artwork contains equipment only. Every control and value is painted once here.
 export function createReferenceScene({canvas,overlay,type,onAction,onUi,onMessage}) {
   const ctx=canvas.getContext('2d');
-  const crop=type==='bench-float'?72:0;
-  canvas.height=941-crop;
-  if(crop)canvas.parentElement.classList.add('crop-browser');
-  let image,run,regions=[],selected,gesture,enabled=false,busy=true;
+  const crop=0;
+  canvas.height=941;
+  let image,atlas,toolsImage,run,regions=[],selected,gesture,enabled=false,busy=true;
   let phase=0,lastTime=0,frame,focusId;
   let level=20;
   let motion=!matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ready=new Promise((resolve,reject)=>{
-    image=new Image();
-    image.onload=()=>{canvas.dataset.assets='ready';resolve();};
-    image.onerror=()=>reject(new Error('โหลดภาพหน้าฝึกไม่ได้ กรุณาโหลดหน้าใหม่'));
-    image.src='/assets/images/reference/'+type+'.png';
-  });
+  function loadImage(path){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('โหลดภาพหน้าฝึกไม่ได้ กรุณาโหลดหน้าใหม่'));img.src=path;});}
+  const ready=Promise.all([loadImage('/assets/images/reference-clean/'+type+'.png'),loadImage('/assets/images/game/equipment-atlas.png'),loadImage('/assets/images/reference-clean/usb-tools.png')]).then(([base,sprites,tools])=>{image=base;atlas=sprites;toolsImage=tools;canvas.dataset.assets='ready';});
   const text=(value,x,y,size=28,fill=color.text,align='center')=>{
-    ctx.font='700 '+size+'px Inter,system-ui,sans-serif';ctx.textAlign=align;ctx.fillStyle=fill;
-    ctx.shadowColor='#051421';ctx.shadowBlur=3;ctx.fillText(String(value),x,y);ctx.shadowBlur=0;
+    ctx.font='600 '+size+'px Inter,system-ui,sans-serif';ctx.textAlign=align;ctx.fillStyle=fill;ctx.fillText(String(value),x,y);
   };
-  function panel(x,y,w,h,stroke='#7cb0c6',fill) {
-    const gradient=ctx.createLinearGradient(x,y,x+w,y+h);
-    gradient.addColorStop(0,'#19394dfb');gradient.addColorStop(1,'#091f30fd');
-    ctx.fillStyle=fill || gradient;ctx.strokeStyle=stroke;ctx.lineWidth=2;
-    ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();
+  function panel(x,y,w,h,stroke='#41647b',fill) {
+    const gradient=ctx.createLinearGradient(x,y,x+w,y+h);gradient.addColorStop(0,'#17364b');gradient.addColorStop(1,'#0c2334');
+    ctx.fillStyle=fill||gradient;ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x,y,w,h,18);ctx.fill();if(stroke)ctx.stroke();
   }
   function pill(x,y,w,h,label,on=false,alarm=false) {
-    panel(x-7,y-6,w+14,h+12,'#173449','#173449');
-    panel(x,y,w,h,alarm?color.red:on?color.green:'#74828d',alarm?'#773d40':on?'#116a38':'#354452');
-    text(label,x+w/2,y+h*.7,Math.min(29,h*.55),on?color.green:color.text);
+    panel(x,y,w,h,alarm?'#b45765':on?'#409774':'#51677b',alarm?'#522e3e':on?'#164d3c':'#253b4e');
+    text(label,x+w/2,y+h*.68,Math.min(26,h*.51),alarm?color.red:on?color.green:color.muted);
   }
-  function led(x,y,on,r=13) {
-    ctx.save();ctx.fillStyle='#183345';ctx.beginPath();ctx.arc(x,y,r+5,0,Math.PI*2);ctx.fill();ctx.shadowColor=on?color.green:'#152534';ctx.shadowBlur=on?18:0;
-    ctx.fillStyle=on?color.green:'#76838d';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
-  function dashed(points,active=true,width=5) {
-    ctx.save();ctx.strokeStyle=active?color.cyan:'#6c8494';ctx.lineWidth=width;
-    ctx.setLineDash([10,8]);ctx.lineDashOffset=active?-phase*32:0;
-    ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();ctx.restore();
-  }
-  function water(x,y,w,h,percent) {
-    ctx.save();ctx.beginPath();ctx.roundRect(x,y,w,h,8);ctx.clip();
-    ctx.fillStyle='#12303b';ctx.fillRect(x,y,w,h);
-    const surface=y+h-h*percent/100;
-    const gradient=ctx.createLinearGradient(x,surface,x,y+h);gradient.addColorStop(0,'#4defffdb');gradient.addColorStop(1,'#008bb7df');
-    ctx.beginPath();ctx.moveTo(x,y+h);ctx.lineTo(x,surface);
-    for(let dx=0;dx<=w;dx+=4)ctx.lineTo(x+dx,surface+Math.sin(dx/14+phase*3)*2.5);
-    ctx.lineTo(x+w,y+h);ctx.closePath();ctx.fillStyle=gradient;ctx.fill();
-    ctx.restore();
-  }
-  function spinning(x,y,r,on) {
-    if(!on)return;
-    ctx.save();ctx.translate(x,y);ctx.rotate(phase*4);ctx.strokeStyle='#b2f8ffb0';ctx.lineWidth=4;
-    for(let i=0;i<5;i++){ctx.rotate(Math.PI*2/5);ctx.beginPath();ctx.moveTo(5,0);ctx.quadraticCurveTo(r,-r*.35,r,0);ctx.stroke();}
-    ctx.restore();
-  }
-  function hit(id,x,y,w,h,label,action,drag,drop,ui) {regions.push({id,x,y,w,h,label,action,drag,drop,ui});}
-  function pin(id,x,y,label,drag,drop) {
-    ctx.save();ctx.strokeStyle=color.cyan;ctx.lineWidth=3;ctx.shadowColor=color.cyan;ctx.shadowBlur=12;
-    ctx.beginPath();ctx.arc(x,y,17,0,Math.PI*2);ctx.stroke();ctx.restore();
-    hit(id,x-26,y-26,52,52,label,null,drag,drop);
-  }
-  function button(id,x,y,w,h,label,action,ui) {
-    panel(x,y,w,h,color.cyan,'#10d3df');text(label,x+w/2,y+h*.68,Math.min(39,h*.53),'#03212a');
-    hit(id,x,y,w,h,label,action,null,null,ui);
-  }
-  function classify(s) {
-    panel(744,290,906,282,'#98b6c7','#192b39f5');
+  function led(x,y,on,r=12){ctx.save();ctx.fillStyle=on?color.green:'#61788b';ctx.shadowColor=color.green;ctx.shadowBlur=on?15:0;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();}
+  function dashed(points,active=true,width=4){ctx.save();ctx.strokeStyle=active?color.cyan:'#658094';ctx.lineWidth=width;ctx.setLineDash([10,8]);ctx.lineDashOffset=active?-phase*32:0;ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();ctx.restore();}
+  // Coordinates describe the INSIDE of each new glass window, never its bezel.
+  function water(x,y,w,h,percent){ctx.save();ctx.beginPath();ctx.roundRect(x,y,w,h,Math.min(12,w/2));ctx.clip();const surface=y+h-h*Math.max(0,Math.min(100,percent))/100;const g=ctx.createLinearGradient(x,surface,x,y+h);g.addColorStop(0,'#6de9eecc');g.addColorStop(1,'#078eb2bb');ctx.beginPath();ctx.moveTo(x,y+h);ctx.lineTo(x,surface);for(let dx=0;dx<=w;dx+=3)ctx.lineTo(x+dx,surface+Math.sin(dx/16+phase*2)*1.6);ctx.lineTo(x+w,y+h);ctx.closePath();ctx.fillStyle=g;ctx.fill();const glass=ctx.createLinearGradient(x,y,x+w,y);glass.addColorStop(0,'#ffffff20');glass.addColorStop(.3,'#ffffff00');glass.addColorStop(.85,'#ffffff00');glass.addColorStop(1,'#ffffff18');ctx.fillStyle=glass;ctx.fillRect(x,y,w,h);ctx.restore();}
+  function spinning(x,y,r,on){if(!on)return;ctx.save();ctx.translate(x,y);ctx.rotate(phase*4);ctx.strokeStyle='#b2f8ffb0';ctx.lineWidth=4;for(let i=0;i<5;i++){ctx.rotate(Math.PI*2/5);ctx.beginPath();ctx.moveTo(5,0);ctx.quadraticCurveTo(r,-r*.35,r,0);ctx.stroke();}ctx.restore();}
+  function hit(id,x,y,w,h,label,action,drag,drop,ui){regions.push({id,x,y,w,h,label,action,drag,drop,ui});}
+  function pin(id,x,y,label,drag,drop){ctx.save();ctx.strokeStyle=color.cyan;ctx.lineWidth=3;ctx.shadowColor=color.cyan;ctx.shadowBlur=10;ctx.beginPath();ctx.arc(x,y,15,0,Math.PI*2);ctx.stroke();ctx.restore();hit(id,x-24,y-24,48,48,label,null,drag,drop);}
+  function button(id,x,y,w,h,label,action,ui){ctx.save();ctx.shadowColor='#16d2df44';ctx.shadowBlur=16;const g=ctx.createLinearGradient(x,y,x,y+h);g.addColorStop(0,'#69f3f3');g.addColorStop(1,'#16c7d5');panel(x,y,w,h,'#91fbfc',g);ctx.restore();text(label,x+w/2,y+h*.66,Math.min(34,h*.48),'#052d39');hit(id,x,y,w,h,label,action,null,null,ui);}
+  function title(label,x,y,size=30){text(label,x,y,size,color.text,'left');}
+  function note(label,x,y,size=22){text(label,x,y,size,color.muted,'left');}
+  function sidebar(x,label){panel(x,137,1650-x,780,'#3d697e');title(label,x+28,185,32);}
+  function row(x,y,w,label,value,on=false,alarm=false,id,action){panel(x,y,w,88);title(label,x+24,y+54,27);pill(x+w-183,y+19,160,50,value,on,alarm);if(id)hit(id,x,y,w,88,label,action);}
+  function badge(label,x,y,w=180){panel(x,y,w,46,'#5296a7','#112e40');text(label,x+w/2,y+31,22,color.cyan);}
+  function sprite(index,x,y,w,h){const cw=atlas.width/4,ch=atlas.height/3;ctx.drawImage(atlas,(index%4)*cw,Math.floor(index/4)*ch,cw,ch,x,y,w,h);}
+  function header(){const g=ctx.createLinearGradient(0,0,1672,112);g.addColorStop(0,'#18364c');g.addColorStop(1,'#091b2c');ctx.fillStyle=g;ctx.fillRect(0,0,1672,112);ctx.fillStyle=color.cyan;ctx.fillRect(0,110,1672,2);title('OT BASIC LAB',32,56,34);const names={classify:'OT, IT, IoT & IIoT',sensor:'Sensor & Actuator',plc:'PLC & I/O',hmi:'HMI',scada:'RTU & SCADA','bench-power':'Bench Wiring · DC Power','bench-usb':'Bench Wiring · USB / Serial','bench-float':'Bench Wiring · Control Wiring','bench-output':'Bench Wiring · Output & Actuator'};note(names[type],32,90,23);const bench=type.startsWith('bench-'),seq=bench?['bench-power','bench-usb','bench-float','bench-output']:['classify','sensor','plc','hmi','scada','build'];const start=bench?1002:860;seq.forEach((key,i)=>{const x=start+i*68;ctx.fillStyle=key===type?color.cyan:'#17364b';ctx.strokeStyle=key===type?color.cyan:'#7395a9';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,54,23,0,Math.PI*2);ctx.fill();ctx.stroke();text(i+1,x,63,25,key===type?'#07313b':color.text);hit((bench?'bench-stage-':'stage-')+i,x-26,26,52,56,'Stage '+(i+1),null,null,null,(bench?'bench-stage-':'stage-')+i);});button('top-help',1335,25,136,57,'คู่มือ',null,'help');button('top-settings',1488,25,155,57,'ตั้งค่า',null,'settings');}
+  function classify(s){
+    panel(735,152,910,425);title('Drag & Drop',765,200);note('จับคู่การ์ดกับประเภทระบบ',765,238,26);
+    const names=['Accounting','Pump Control','Smart Home','Vibration Monitor'],icons=[5,4,6,7];
     const remaining=[0,2,3,1].filter(id=>!Object.hasOwn(s.assignments,id)).slice(0,3);
-    const crops={0:[756,320,265,230],2:[1060,303,252,242],3:[1343,303,267,242]};
-    remaining.forEach((id,index)=>{
-      const x=763+index*290;
-      if(id===1){panel(x,307,260,239,'#d7d0c7','#eee7dd');ctx.drawImage(image,475,691,155,132,x+50,329,155,132);text('Pump Control',x+130,510,26,'#152b39');}
-      else {const [sx,sy,sw,sh]=crops[id];ctx.drawImage(image,sx,sy,sw,sh,x,307,260,239);}
-      hit('device-'+id,x,307,260,239,'ลาก '+['Accounting','Pump Control','Smart Home Sensor','Vibration Monitoring'][id],null,{kind:'device',key:id});
-    });
-    ['IT','OT','IoT','IIoT'].forEach((category,i)=>{
-      const x=65+i*390;panel(x,675,337,153,'#5e859a','#142a38f8');
-      const items=Object.entries(s.assignments).filter(([,value])=>value===category);
-      if(!items.length)text('วางการ์ดที่นี่',x+168,760,24,'#a4c2d1');
-      items.forEach(([id],index)=>{
-        const device=Number(id),compact=items.length>1;
-        const cardX=x+8+(compact?(index%2)*162:0),cardY=686+(compact?Math.floor(index/2)*65:0);
-        const cardW=compact?156:321,cardH=compact?61:131;
-        panel(cardX,cardY,cardW,cardH,'#c6c0b7','#ece6dd');
-        const icons=[[790,335,185,135],[475,695,150,125],[1090,320,185,125],[1370,333,180,125]];
-        const [sx,sy,sw,sh]=icons[device];
-        ctx.drawImage(image,sx,sy,sw,sh,cardX+8,cardY+8,compact?54:145,cardH-16);
-        const labels=['Accounting','Pump Control','Smart Home','Vibration'];
-        text(labels[device],cardX+(compact?108:238),cardY+cardH*.57,compact?13:22,'#172d39');
-        hit('device-'+device,cardX,cardY,cardW,cardH,'ย้ายการ์ด '+labels[device],null,{kind:'device',key:device});
-      });
-      hit('category-'+category,x,675,337,153,'วางใน '+category,null,null,{kind:'category',key:category});
-    });
-    hit('check',1405,862,246,64,'Check',null,null,null,'check');
+    remaining.forEach((id,i)=>{const x=764+i*289;panel(x,267,260,276,'#7c9da9','#edf0ec');sprite(icons[id],x+40,280,180,165);text(names[id],x+130,505,24,'#183747');hit('device-'+id,x,267,260,276,'ลาก '+names[id],null,{kind:'device',key:id});});
+    ['IT','OT','IoT','IIoT'].forEach((category,i)=>{const x=35+i*409;panel(x,614,383,220);title(category,x+22,660,32);const items=Object.entries(s.assignments).filter(([,v])=>v===category);if(!items.length){ctx.save();ctx.setLineDash([8,7]);panel(x+17,684,349,128,'#4b8096','#102c3d');ctx.restore();text('วางการ์ดที่นี่',x+191,757,25,color.muted);}items.forEach(([key],j)=>{const id=Number(key),compact=items.length>1,cy=680+(compact?j*32:0),h=compact?31:135;panel(x+17,cy,349,h,'#7594a1','#edf0ec');if(!compact)sprite(icons[id],x+24,cy+6,132,120);text(names[id],x+(compact?190:252),cy+h*.58,compact?20:23,'#173546');hit('device-'+id,x+17,cy,349,h,'ย้าย '+names[id],null,{kind:'device',key:id});});hit('category-'+category,x,675,383,155,'วางใน '+category,null,null,{kind:'category',key:category});});
+    button('check',1405,858,239,62,'Check',null,'check');
   }
-  function sensor(s) {
-    water(176,312,90,269,level);water(980,349,201,228,level);
-    panel(1221,479,423,156,'#365268','#0d2838');text(s.level+'%',1430,595,92,color.cyan);
-    panel(1543,296,104,61,'#17394b','#17394b');text(s.level+'%',1595,343,32);
-    panel(1238,318,315,25,'#68899a','#49606f');
-    ctx.fillStyle=color.cyan;ctx.fillRect(1242,321,307*s.level/100,19);
-    const knob=1242+307*s.level/100;ctx.fillStyle='#72ffff';ctx.strokeStyle='#f8ffff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(knob,330,18,0,Math.PI*2);ctx.fill();ctx.stroke();
-    button('valve',1223,684,434,122,s.valve?'Close Valve':'Open Valve',{kind:'valve'});
-    hit('valve-image',715,544,207,191,'เปิดหรือปิดวาล์วบนภาพ',{kind:'valve'});
-    hit('level-slider',1236,300,320,62,'ลากระดับน้ำ',null,{kind:'slider',key:'sensor'});
-    if(s.valve)dashed([[610,670],[970,670],[970,571]],true,7);
-    spinning(560,679,29,s.valve);
-  }
-  function plc(s) {
-    const wired=s.inputWired ?? s.ran;
-    const on=run.pump;
-    pill(890,589,337,66,wired?'I0.0  CONNECTED':'I0.0  NOT WIRED',wired);
-    pill(1292,589,312,66,'Q0.0  '+(on?'ON':'OFF'),on);
-    panel(880,320,210,147,'#4c8b94');text(s.full?'Level HIGH':'Level Low',986,447,26,s.full?color.red:color.cyan);
-    panel(1402,322,200,146,'#4c8b94');text(on?'Pump ON':'Pump OFF',1501,448,28,on?color.green:color.muted);
-    pin('from-sensor',239,514,'ลาก Level Sensor', {kind:'wire',key:'sensor'});
-    pin('to-I0.0',943,618,'PLC I0.0',null,{kind:'terminal',key:'I0.0'});
-    pin('to-I0.1',1336,618,'PLC I0.1 ทดสอบขั้วผิด',null,{kind:'terminal',key:'I0.1'});
-    if(wired)dashed([[239,514],[520,566],[875,618]],true,6);
-    button('run-logic',953,720,614,125,on?'Stop Logic':'Run Logic',{kind:on?'stop':'start'});
-    hit('full',465,230,300,435,'คลิกถังรับเพื่อจำลองเต็ม',{kind:'full'});
-    hit('source',108,220,285,444,'คลิกถังต้นทางเปลี่ยนระดับ',{kind:'source'});
-    water(345,365,24,271,s.source?80:5);water(680,367,20,199,s.full?100:30);
-    spinning(651,742,27,on);
-  }
-  function hmi(s) {
-    pill(1324,270,259,65,s.command?'ON':'OFF',s.command);
-    pill(1325,408,270,65,s.feedback?'ON':'WAITING',s.feedback);
-    panel(1229,519,395,124,s.alarm?color.red:color.cyan,'#153142');
-    text(s.alarm?'ALARM':run.pump?'RUNNING':s.command?'STARTING':'STOPPED',1430,578,38,s.alarm?color.red:color.text);
-    ctx.fillStyle='#415260';ctx.fillRect(1250,616,340,17);ctx.fillStyle=color.cyan;ctx.fillRect(1250,616,run.pump?340:s.command?Math.min(300,s.ticks*90):0,17);
-    button('start',909,728,690,118,s.command?'Stop Pump':'Start Pump',{kind:s.command?'stop':'start'});
-    hit('feedback',890,385,731,122,'คลิกแถว Pump Feedback เพื่อจำลอง Feedback',{kind:'feedback'});
-    hit('ack',884,518,741,145,'คลิกแถว Pump เพื่อ ACK Alarm',{kind:'ack'});
-    spinning(613,728,28,run.pump);
-    if(run.pump)dashed([[370,645],[370,585],[518,585]],true,5);
-  }
-  function scada(s) {
-    const a=s.remote,b=s.remoteB ?? 18;
-    panel(138,348,166,77,'#153347','#153347');text(s.level+'%',218,410,50);
-    panel(134,664,171,75,'#153347','#153347');text((s.levelB ?? 18)+'%',218,720,48);
-    pill(213,459,86,40,run.pump?'ON':'OFF',Boolean(run.pump));
-    pill(213,774,95,40,s.pumpB?'ON':'OFF',Boolean(s.pumpB));
-    hit('pump-A',205,453,101,55,'Pump Station A',{kind:'pump'});
-    hit('pump-B',205,768,101,55,'Pump Station B',{kind:'pump',station:'B'});
-    panel(718,592,181,72,'#13374b','#13374b');text(a+'%',808,645,39,color.cyan);
-    panel(936,592,157,72,'#13374b','#13374b');text(b+'%',1015,645,39,b<20?color.red:color.cyan);
-    panel(1288,553,137,72,'#183e53','#183e53');text(a+'%',1356,605,34);
-    panel(1288,638,137,72,'#533441','#533441');text(b+'%',1356,685,34);
-    pill(738,681,146,40,(s.remotePumpA ?? true)?'Pump ON':'Pump OFF',s.remotePumpA ?? true);
-    pill(946,681,147,42,b<20?'Low Level':'NORMAL',b>=20,b<20);
-    pill(1440,563,65,39,(s.remotePumpA ?? true)?'ON':'OFF',s.remotePumpA ?? true);
-    pill(1440,649,65,39,s.remotePumpB?'ON':'OFF',Boolean(s.remotePumpB));
-    pill(1517,650,131,40,b<20?'Low Level':'NORMAL',b>=20,b<20);
-    pill(1515,248,92,45,s.connected?'ON':'OFF',s.connected);
-    pill(1515,320,92,45,s.connectedB?'ON':'OFF',s.connectedB);
-    hit('connection',1197,234,435,69,'RTU A ตัดหรือเชื่อมต่อ',{kind:'connection'});
-    hit('connection-B',1197,305,435,70,'RTU B ตัดหรือเชื่อมต่อ',{kind:'connection',station:'B'});
-    hit('level',42,323,265,124,'เพิ่มระดับสถานี A 5%',{kind:'level',value:Math.min(100,s.level+5)});
-    hit('level-B',42,639,265,115,'เพิ่มระดับสถานี B 5%',{kind:'level',station:'B',value:Math.min(100,(s.levelB ?? 18)+5)});
-    hit('send',1224,774,401,89,'Send Level',{kind:'send'});
-    dashed([[520,471],[570,471],[570,600],[634,600]],s.connected);
-    dashed([[520,722],[570,722],[570,650],[634,650]],s.connectedB);
-    water(470,249,26,107,s.level);water(1031,273,27,102,s.levelB ?? 18);
-  }
-  function power(s) {
-    [12,24,48].forEach((voltage,i)=>{
-      const x=1163+i*165;panel(x,270,149,53,s.voltage===voltage?color.cyan:'#64869c');
-      text(voltage+' VDC',x+75,305,24,s.voltage===voltage?color.cyan:color.text);
-      hit('voltage-'+voltage,x,270,149,53,'เลือก '+voltage+' VDC',{kind:'voltage',value:voltage});
-    });
-    panel(884,313,196,95,'#819f8e','#c3d5ba');
-    text(s.reading===null?'—':s.reading.toFixed(1),978,384,58,'#10231c');
-    panel(1180,454,309,78,color.cyan,'#002f3f');text(s.reading===null?'— V DC':s.reading.toFixed(1)+' V DC',1335,509,40,color.cyan);
-    hit('mode',845,465,202,149,'คลิกหมุนมิเตอร์ไปย่าน DC',{kind:'mode'});
-    pill(855,471,68,34,s.mode==='dc'?'DC':'OFF',s.mode==='dc');
-    led(1599,482,s.voltage===24,22);led(775,230,s.voltage===24,11);
-    pin('probe-red',1029,706,'ลากโพรบแดง',{kind:'probe',key:'red'});
-    pin('probe-black',955,707,'ลากโพรบดำ',{kind:'probe',key:'black'});
-    pin('terminal-24V',494,520,'ขั้ว PLC +24V',null,{kind:'terminal',key:'24V'});
-    pin('terminal-0V',518,520,'ขั้ว PLC 0V',null,{kind:'terminal',key:'0V'});
-    for(const [from,to] of Object.entries(s.probes)) if(to)dashed([[from==='red'?1029:955,706],[780,850],[to==='24V'?494:518,520]],true,3);
-    hit('measure',1145,803,195,86,'CHECK วัดแรงดัน',{kind:'measure'});
-    hit('hint',1350,810,147,74,'Hint',null,null,null,'help');
-    hit('reset',1508,810,148,74,'Reset',null,null,null,'reset');
-  }
-  function usb(s) {
-    const tool=s.tool==='usb'?'USB':'RS-485';
-    panel(1138,421,504,92,s.tool==='usb'?color.cyan:'#759cb1','#173b50ce');
-    ctx.drawImage(image,1205,434,230,76,1205,434,230,76);text('USB Cable',1525,465,26);text('PC ↔ Controller',1518,496,21);
-    panel(1138,524,504,94,s.tool==='rs485'?color.cyan:'#759cb1','#173b50ce');
-    ctx.drawImage(image,1204,544,229,67,1204,544,229,67);text('USB-to-RS-485',1522,564,24);text('Adapter',1522,594,23);
-    hit('tool-usb',1138,421,504,92,'เลือก USB Cable',{kind:'tool',value:'usb'});
-    hit('tool-rs485',1138,524,504,94,'เลือก RS-485 Adapter',{kind:'tool',value:'rs485'});
-    pin('from-laptop',1013,806,'ลากหัวสายจาก Laptop',{kind:'wire',key:'laptop'});
-    pin('port-usb',638,387,'พอร์ต USB ของ PLC',null,{kind:'terminal',key:'usb'});
-    pin('port-rs485',642,498,'พอร์ต RS-485 ของ PLC',null,{kind:'terminal',key:'rs485'});
-    if(s.port)dashed([[1013,806],[800,848],[s.port==='usb'?638:642,s.port==='usb'?387:498]],true,7);
-    panel(883,511,193,64,'#254661','#254661');text(s.connected?'Device Online':'Not connected',979,552,21,s.connected?color.green:color.text);
-    button('connect',1192,695,405,69,'Connect '+tool,{kind:'connect'});
-    panel(1127,807,529,112,s.connected?color.green:'#678da1',s.connected?'#064b3c':'#18364b');
-    text(s.connected?'✓ Device Detected':'Device Not Connected',1391,852,31,s.connected?color.green:color.text);
-    text('Interface: '+tool+'  •  '+(s.connected?'Online':'Offline'),1390,893,23);
-  }
-  function float(s) {
-    const powered=s.wires.power==='24V' && s.wires.common==='0V';
-    const index=/^DI[0-7]$/.test(s.wires.signal || '')?Number(s.wires.signal.slice(2)):-1;
-    const on=powered && s.high;
-    panel(1067,283,574,107,'#244c61','#102f42');
-    text((powered?'☑':'☐')+'  Provide 24 VDC to float sensor',1370,316,22);
-    text((index===0?'☑':'☐')+'  Wire sensor signal to DI 0',1370,348,22);
-    text((s.tested?'☑':'☐')+'  Test Float → DI 0 ON',1370,380,22);
-    pill(1438,478,144,38,s.high?'HIGH (ON)':'LOW (OFF)',s.high);
-    for(let i=0;i<8;i++){
-      const x=1091+i*69;panel(x,661,64,96,i===index && on?color.cyan:'#49687a','#163549');
-      text('DI '+i,x+32,684,18);led(x+32,710,on&&i===index,12);text(on&&i===index?'ON':'OFF',x+32,750,17,on&&i===index?color.green:color.text);
-    }
-    panel(1069,805,576,89,s.tested?color.green:'#5d869d',s.tested?'#06483b':'#16384b');
-    text(s.tested?'DI 0 is ON.':'Complete wiring and test HIGH',1349,847,26,s.tested?color.green:color.text);
-    text('Float sensor • '+(powered?'24 VDC':'Power wiring required'),1350,879,20);
-    pill(63,851,341,48,'Float: '+(s.high?'HIGH (ON)':'LOW (OFF)'),s.high);
-    pin('float-power',539,732,'ลาก +24V ของ Sensor',{kind:'wire',key:'power'});
-    pin('float-common',645,732,'ลาก 0V ของ Sensor',{kind:'wire',key:'common'});
-    pin('float-signal',591,732,'ลาก SIG ของ Sensor',{kind:'wire',key:'signal'});
-    pin('supply-24V',234,424,'Power Supply +24V',null,{kind:'terminal',key:'24V'});
-    pin('supply-0V',272,424,'Power Supply 0V',null,{kind:'terminal',key:'0V'});
-    for(let i=0;i<8;i++)pin('di-'+i,594+i*41,394,'PLC DI '+i,null,{kind:'terminal',key:'DI'+i});
-    const origins={power:[539,732],common:[645,732],signal:[591,732]};
-    for(const [from,to] of Object.entries(s.wires)){
-      const end=to==='24V'?[234,424]:to==='0V'?[272,424]:[594+Number(to.slice(2))*41,394];
-      dashed([origins[from],[origins[from][0],550],end],true,4);
-    }
-    ctx.save();ctx.strokeStyle='#68f4ffb0';ctx.lineWidth=4;
-    ctx.beginPath();
-    for(let x=80;x<406;x+=4){const y=(s.high?755:812)+Math.sin(x/18+phase*2)*3;if(x===80)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
-    ctx.stroke();ctx.restore();
-    hit('test-float',1270,535,308,49,'Test Float',{kind:'test'});
-    button('next',1487,825,142,55,'Next',null,'next');
-  }
-  function output(s) {
-    led(402,487,s.output,13);led(639,480,s.relay,10);
-    pill(1498,559,115,37,s.output?'ON':'OFF',s.output);
-    pill(1498,634,115,37,s.relay?'ON':'OFF',s.relay);
-    pill(1498,708,115,41,s.motor?'RUNNING':'STOPPED',s.motor);
-    hit('test-output',1246,364,389,81,'Test Output',{kind:'test'});
-    hit('reset',1231,847,139,59,'Reset',null,null,null,'reset');
-    hit('help',1386,847,137,59,'Help',null,null,null,'help');
-    hit('back',1535,847,129,59,'Back',null,null,null,'back');
-    spinning(1145,659,39,s.motor);
-    if(s.output)dashed([[397,589],[397,741],[587,741],[587,583]],true,4);
-  }
+  function sensor(s){sidebar(1192,'Sensor & Actuator');panel(1215,222,412,165);title('Water Level',1238,263);const x=1244,y=326,w=264;ctx.fillStyle='#365365';ctx.beginPath();ctx.roundRect(x,y,w,12,6);ctx.fill();ctx.fillStyle=color.cyan;ctx.beginPath();ctx.roundRect(x,y,w*s.level/100,12,6);ctx.fill();ctx.fillStyle='#a8ffff';ctx.strokeStyle='#f0ffff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x+w*s.level/100,y+6,17,0,Math.PI*2);ctx.fill();ctx.stroke();text(s.level+'%',1568,344,28);hit('level-slider',x,y-20,w,52,'ลากระดับน้ำ',null,{kind:'slider',key:'sensor'});panel(1215,414,412,215);title('Sensor Reading',1238,459);text(s.level+'%',1421,574,84,color.cyan);note('เป้าหมาย '+run.target+'%',1240,674,25);button('valve',1221,714,401,98,s.valve?'Close Valve':'Open Valve',{kind:'valve'});badge(s.valve?'VALVE OPEN':'VALVE CLOSED',1238,840,365);hit('valve-image',700,535,184,217,'เปิดหรือปิดวาล์วบนภาพ',{kind:'valve'});drawGlass(s);}
+  function plc(s){const wired=s.inputWired??s.ran,on=run.pump;sidebar(841,'PLC · Input / Logic / Output');const labels=['INPUT','LOGIC','OUTPUT'];labels.forEach((label,i)=>{const x=864+i*251;panel(x,224,233,248,i===0&&wired?color.cyan:'#41647b');text(label,x+116,271,26,color.cyan);sprite(i===0?7:i===1?2:1,x+49,290,135,104);text(i===0?(s.full?'Level HIGH':'Level LOW'):i===1?'Fill Tank':on?'Pump ON':'Pump OFF',x+116,439,24,i===2&&on?color.green:color.text);});title('I/O Monitor',869,527);pill(895,565,323,74,wired?'I0.0  CONNECTED':'I0.0  NOT WIRED',wired);pill(1272,565,322,74,'Q0.0  '+(on?'ON':'OFF'),on);pin('from-sensor',204,452,'ลาก Level Sensor',{kind:'wire',key:'sensor'});pin('to-I0.0',923,602,'PLC I0.0',null,{kind:'terminal',key:'I0.0'});pin('to-I0.1',1299,602,'PLC I0.1 ทดสอบขั้วผิด',null,{kind:'terminal',key:'I0.1'});if(wired)dashed([[204,452],[480,548],[923,602]]);button('run-logic',887,704,715,100,on?'Stop Logic':'Run Logic',{kind:on?'stop':'start'});note('คลิกถังรับเพื่อทดสอบระดับเต็ม',886,861,26);hit('full',510,240,270,425,'คลิกถังรับเพื่อจำลองเต็ม',{kind:'full'});hit('source',148,240,293,425,'คลิกถังต้นทางเปลี่ยนระดับ',{kind:'source'});drawGlass(s);spinning(688,784,28,on);}
+  function hmi(s){sidebar(841,'HMI · Pump Control');row(870,223,751,'Pump Command',s.command?'ON':'OFF',s.command);row(870,335,751,'Pump Feedback',s.feedback?'ON':'WAITING',s.feedback,false,'feedback',{kind:'feedback'});panel(870,448,751,203,s.alarm?'#bd5c6c':'#41647b');title('Pump Status',897,497);const status=s.alarm?'ALARM':run.pump?'RUNNING':s.command?'STARTING':'STOPPED';text(status,1246,560,43,s.alarm?color.red:run.pump?color.green:color.text);ctx.fillStyle='#2e485d';ctx.beginPath();ctx.roundRect(899,595,692,15,7);ctx.fill();const progress=run.pump?1:s.command?Math.min(.9,s.ticks/3):0;if(progress){ctx.fillStyle=s.alarm?color.red:color.cyan;ctx.beginPath();ctx.roundRect(899,595,692*progress,15,7);ctx.fill();}hit('ack',870,448,751,203,'คลิก Pump Status เพื่อ ACK Alarm',{kind:'ack'});button('start',884,709,723,101,s.command?'Stop Pump':'Start Pump',{kind:s.command?'stop':'start'});note(s.alarm?'คลิก Feedback แล้ว ACK ที่ Pump Status':'คลิก Pump Feedback เพื่อจำลองสัญญาณตอบกลับ',884,862,23);spinning(587,751,28,run.pump);}
+  function stationCard(x,y,label,percent,pump,remote=false){panel(x,y,281,200);title(label,x+21,y+39,29);text(percent+'%',x+140,y+108,50,color.cyan);pill(x+69,y+134,145,44,pump?'Pump ON':'Pump OFF',pump);}
+  function scada(s){const a=s.remote,b=s.remoteB??18;sidebar(1134,'RTU & SCADA');row(1158,225,468,'RTU A',s.connected?'ON':'OFF',s.connected,false,'connection',{kind:'connection'});row(1158,326,468,'RTU B',s.connectedB?'ON':'OFF',s.connectedB,false,'connection-B',{kind:'connection',station:'B'});title('Station Overview',1160,470,29);panel(1158,493,468,226);['Station','Level','Pump','Alarm'].forEach((v,i)=>text(v,[1206,1311,1410,1540][i],530,19,color.muted));[a,b].forEach((v,i)=>{const y=563+i*76;ctx.fillStyle=i&&b<20?'#472f3e':'#163447';ctx.fillRect(1170,y-16,444,69);text(i?'B':'A',1205,y+29,28);text(v+'%',1309,y+29,29,color.cyan);text((i?s.remotePumpB:(s.remotePumpA??true))?'ON':'OFF',1411,y+29,23);text(v<20?'Low Level':'NORMAL',1542,y+29,19,v<20?color.red:color.muted);});button('send',1172,774,440,92,'Send Level',{kind:'send'});stationCard(24,250,'Station A',s.level,s.pumpA??true);stationCard(24,676,'Station B',s.levelB??18,Boolean(s.pumpB));hit('level',34,295,260,88,'เพิ่มระดับสถานี A 5%',{kind:'level',value:Math.min(100,s.level+5)});hit('level-B',34,721,260,88,'เพิ่มระดับสถานี B 5%',{kind:'level',station:'B',value:Math.min(100,(s.levelB??18)+5)});hit('pump-A',92,384,145,44,'Pump Station A',{kind:'pump'});hit('pump-B',92,810,145,44,'Pump Station B',{kind:'pump',station:'B'});title('SCADA',627,612,23);[['A',a,s.remotePumpA??true],['B',b,Boolean(s.remotePumpB)]].forEach(([name,v,p],i)=>{const x=622+i*164;panel(x,627,153,128);text(name,x+18,650,18,color.text,'left');text(v+'%',x+76,693,32,v<20?color.red:color.cyan);text(p?'Pump ON':v<20?'Low Level':'Pump OFF',x+76,735,18,v<20?color.red:p?color.green:color.muted);});dashed([[522,625],[567,625],[567,676],[610,676]],s.connected);dashed([[522,765],[569,765],[569,722],[610,722]],s.connectedB);drawGlass(s);}
+  function power(s){sidebar(1127,'DC Power · 24 VDC');panel(1151,223,475,137);title('Supply Voltage',1175,265,27);[12,24,48].forEach((v,i)=>{const x=1169+i*148;panel(x,291,135,48,s.voltage===v?color.cyan:'#41647b',s.voltage===v?'#125469':'#193b50');text(v+' VDC',x+67,324,23);hit('voltage-'+v,x,291,135,48,'เลือก '+v+' VDC',{kind:'voltage',value:v});});panel(1151,390,475,200);title('Measurement',1175,435);text(s.reading===null?'— V DC':s.reading.toFixed(1)+' V DC',1360,529,55,color.cyan);led(1584,510,s.voltage===24,15);panel(1151,620,475,139);title('Measure Voltage',1174,664,28);note('ต่อโพรบเข้าขั้ว PLC +24V และ 0V',1174,706,22);note('เลือกย่าน DC แล้วกด CHECK',1174,740,22);button('measure',1154,798,215,73,'CHECK',{kind:'measure'});button('hint',1387,798,108,73,'HINT',null,'help');button('reset',1510,798,116,73,'RESET',null,'reset');const g=glass[type]?.meter;if(g){const [x,y,w,h]=g;ctx.save();ctx.beginPath();ctx.roundRect(x,y,w,h,9);ctx.clip();text(s.reading===null?'—':s.reading.toFixed(1),x+w/2,y+h*.75,h*.73,'#20372f');ctx.restore();}const p=ports[type];text('PLC',510,454,30,color.muted);badge('+24V',354,611,104);badge('0V',488,611,104);dashed([[433,566],[406,611]],false,2);dashed([[458,566],[540,611]],false,2);hit('mode',p.mode[0]-70,p.mode[1]-60,140,120,'คลิกหน้าปัดเลือก DC',{kind:'mode'});badge(s.mode==='dc'?'DC VOLTAGE':'METER OFF',p.mode[0]-88,p.mode[1]+88,176);pin('probe-red',...p.red,'ลากโพรบแดง',{kind:'probe',key:'red'});pin('probe-black',...p.black,'ลากโพรบดำ',{kind:'probe',key:'black'});pin('terminal-24V',...p.positive,'PLC +24V',null,{kind:'terminal',key:'24V'});pin('terminal-0V',...p.negative,'PLC 0V',null,{kind:'terminal',key:'0V'});for(const [from,to]of Object.entries(s.probes))if(to)dashed([p[from],[770,875],to==='24V'?p.positive:p.negative],true,3);}
+  function usb(s){const tool=s.tool==='usb'?'USB':'RS-485';sidebar(1107,'USB / SERIAL');note('เลือกสายและเชื่อมต่อ Laptop กับ PLC',1134,235,24);[['usb','USB Cable','PC to Controller'],['rs485','RS-485 Adapter','USB to RS-485 A/B']].forEach(([key,label,detail],i)=>{const y=275+i*137;panel(1134,y,486,112,s.tool===key?color.cyan:'#41647b',s.tool===key?'#16465b':'#123044');ctx.strokeStyle=s.tool===key?color.cyan:'#6b879b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(1167,y+55,13,0,Math.PI*2);ctx.stroke();if(s.tool===key){ctx.fillStyle=color.cyan;ctx.beginPath();ctx.arc(1167,y+55,7,0,Math.PI*2);ctx.fill();}ctx.drawImage(toolsImage,i*toolsImage.width/2,0,toolsImage.width/2,toolsImage.height,1188,y+12,142,88);title(label,1348,y+47,25);note(detail,1348,y+82,19);hit('tool-'+key,1134,y,486,112,'เลือก '+label,{kind:'tool',value:key});});title('Connect Device',1136,587,29);button('connect',1142,621,470,81,'Connect '+tool,{kind:'connect'});panel(1134,745,486,135,s.connected?'#408c71':'#41647b');title(s.connected?'Device Detected':'Device Not Connected',1157,793,29);note('Interface  '+tool,1157,834,24);text(s.connected?'ONLINE':'OFFLINE',1565,855,22,s.connected?color.green:color.muted,'right');const p=ports[type];text('USB',590,432,20,color.cyan,'left');text('RS-485',590,509,18,color.cyan,'left');pin('from-laptop',...p.laptop,'ลากสายจาก Laptop',{kind:'wire',key:'laptop'});pin('port-usb',...p.usb,'พอร์ต USB ของ PLC',null,{kind:'terminal',key:'usb'});pin('port-rs485',...p.rs485,'พอร์ต RS-485 ของ PLC',null,{kind:'terminal',key:'rs485'});if(s.port)dashed([p.laptop,[820,872],p[s.port]],true,5);if(p.screen){const [x,y,w,h]=p.screen;panel(x,y,w,h,'#597f9c','#153c60');text('ENGINEERING TOOL',x+w/2,y+42,22,color.cyan);text(s.connected?'DEVICE ONLINE':'NOT CONNECTED',x+w/2,y+91,22,s.connected?color.green:color.muted);}}
+  function float(s){const powered=s.wires.power==='24V'&&s.wires.common==='0V',index=/^DI[0-7]$/.test(s.wires.signal||'')?Number(s.wires.signal.slice(2)):-1,on=powered&&s.high;sidebar(1038,'Control Wiring');panel(1063,221,560,163);[['Provide 24 VDC to float sensor',powered],['Wire sensor signal to DI 0',index===0],['Test Float and verify DI 0 ON',s.tested]].forEach(([v,done],i)=>{led(1090,259+i*45,done,8);title(v,1114,267+i*45,23);});title('Virtual Float Test',1066,435);pill(1445,405,175,46,s.high?'HIGH (ON)':'LOW (OFF)',s.high);button('test-float',1070,470,545,74,'Test Float',{kind:'test'});title('I/O Monitor',1067,600);for(let i=0;i<8;i++){const x=1064+i*70;panel(x,621,64,110,i===index&&on?color.cyan:'#41647b');text('DI '+i,x+32,651,19);led(x+32,677,on&&i===index,11);text(on&&i===index?'ON':'OFF',x+32,714,17,on&&i===index?color.green:color.muted);}panel(1063,771,560,122,s.tested?'#408c71':'#41647b');title(s.tested?'DI 0 is ON':'Complete wiring and test',1084,816,25);note(powered?'24 VDC connected':'Power wiring required',1084,854,21);button('next',1472,804,128,57,'Next',null,'next');const p=ports[type];for(const [key,label]of [['power','+24V'],['common','0V'],['signal','SIG']])pin('float-'+key,...p[key],'ลาก '+label+' ของ Sensor',{kind:'wire',key});pin('supply-24V',...p.supply24,'Power Supply +24V',null,{kind:'terminal',key:'24V'});pin('supply-0V',...p.supply0,'Power Supply 0V',null,{kind:'terminal',key:'0V'});for(let i=0;i<8;i++){text('DI'+i,p.di[0]+i*p.step,p.di[1]-29,13,color.cyan);pin('di-'+i,p.di[0]+i*p.step,p.di[1],'PLC DI '+i,null,{kind:'terminal',key:'DI'+i});}for(const [key,label]of [['power','+24V'],['signal','SIG'],['common','0V']])text(label,p[key][0],p[key][1]-32,18,color.cyan);for(const [from,to]of Object.entries(s.wires)){const dest=to==='24V'?p.supply24:to==='0V'?p.supply0:[p.di[0]+Number(to.slice(2))*p.step,p.di[1]];dashed([p[from],[p[from][0],530],dest],true,3);}water(301,595,191,198,s.high?78:23);badge('Float  '+(s.high?'HIGH (ON)':'LOW (OFF)'),55,864,350);}
+  function output(s){sidebar(1191,'Output & Actuator');panel(1217,220,409,154);title('Test Output',1240,264);note('PLC Output → Relay → Motor',1240,311,22);note('ทดสอบการทำงานของโหลด',1240,349,23);button('test-output',1227,405,390,82,'Test Output',{kind:'test'});title('System Status',1218,549);row(1217,578,409,'Output',s.output?'ON':'OFF',s.output);row(1217,678,409,'Relay',s.relay?'ON':'OFF',s.relay);row(1217,778,409,'Motor',s.motor?'RUNNING':'STOPPED',s.motor);const p=ports[type];led(...p.output,s.output,10);led(...p.relay,s.relay,10);spinning(...p.motor,34,s.motor);}
+  // These values are calibrated against the v1.5 artwork, in the canvas coordinate space.
+  const glass={plc:{a:[312,354,25,246],b:[680,356,23,211]},sensor:{a:[164,311,16,233],b:[968,391,158,302]},scada:{a:[437,254,25,149],b:[908,255,25,148]},'bench-power':{meter:[790,389,126,71]}};
+  const ports={
+    'bench-power':{mode:[831,561],red:[390,766],black:[290,794],positive:[433,566],negative:[458,566]},
+    'bench-usb':{laptop:[1000,797],usb:[545,431],rs485:[550,507],screen:[704,548,280,144]},
+    'bench-float':{power:[652,711],common:[770,711],signal:[705,711],supply24:[322,414],supply0:[342,414],di:[565,403],step:26},
+    'bench-output':{output:[467,339],relay:[637,383],motor:[620,717]}
+  };
+  function drawGlass(s){const g=glass[type];if(!g)return;water(...g.a,type==='plc'?(s.source?80:5):type==='scada'?s.level:level);water(...g.b,type==='plc'?(s.full?100:30):type==='scada'?(s.levelB??18):level);}
   const drawers={classify,sensor,plc,hmi,scada,'bench-power':power,'bench-usb':usb,'bench-float':float,'bench-output':output};
   function draw() {
     if(!run || !image?.complete)return;
     regions=[];
     ctx.save();ctx.translate(0,-crop);ctx.drawImage(image,0,0,1672,941);
+    if(type==='sensor')ctx.drawImage(image,0,112,1340,829,0,112,1190,829);
+    if(type==='plc'||type==='hmi'){ctx.fillStyle='#0a1f31';ctx.fillRect(800,112,872,829);}
     drawers[type](run.state);
-    if(type==='bench-power'){
-      hit('training-game',1126,4,200,65,'Training Game',null,null,null,'labs');
-      hit('top-help',1334,4,165,65,'OT Basics',null,null,null,'help');
-      hit('top-settings',1500,4,120,65,'Settings',null,null,null,'settings');
-      hit('top-fullscreen',1622,4,50,65,'Full Screen',null,null,null,'fullscreen');
-    } else if(type==='bench-float'){
-      hit('lab-guide',1230,84,152,50,'Lab Guide',null,null,null,'help');
-      hit('top-help',1396,84,113,50,'Help',null,null,null,'help');
-      hit('top-settings',1522,84,137,50,'Settings',null,null,null,'settings');
-    } else if(type==='bench-usb' || type==='bench-output'){
-      const centers=type==='bench-usb'?[1305,1415,1520,1626]:[1405,1468,1532,1604];
-      centers.forEach((x,i)=>hit('bench-stage-'+i,x-24,4,48,60,'Bench Stage '+(i+1),null,null,null,'bench-stage-'+i));
-    } else {
-      const centers=type==='sensor'?[1203,1284,1364,1444,1524,1604]:type==='plc'?[1229,1307,1385,1465,1545,1622]:type==='hmi'?[1224,1302,1383,1463,1545,1626]:[1243,1320,1397,1474,1552,1628];
-      centers.forEach((x,i)=>hit('stage-'+i,x-30,3,60,77,'Stage '+(i+1),null,null,null,'stage-'+i));
-    }
+    header();
     if(gesture?.moved && gesture.source.drag && gesture.source.drag.kind!=='slider'){
       if(['wire','probe'].includes(gesture.source.drag.kind))dashed([[gesture.source.x+gesture.source.w/2,gesture.source.y+gesture.source.h/2],[gesture.current.x,gesture.current.y]],true,5);
       else{

@@ -20,3 +20,5 @@ dialog{max-width:660px;width:calc(100% - 32px);max-height:85dvh;overflow:auto;bo
 dialog::backdrop{background:#03111bca}dialog h1{font-size:25px}.lesson{white-space:pre-line;color:#afc9d8}li{padding:6px 0}li.done{color:#86f8b0}
 @media(max-width:800px){.reference-app{justify-content:flex-start}.reference-stage,.reference-stage.crop-browser{width:100vw}.reference-bar{font-size:11px;gap:6px}.reference-bar button{font-size:11px}#reference-feedback{flex-basis:100%;order:2}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+
+.reference-bar .button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #70c8d6;border-radius:7px;background:#183b50;color:#eaffff;padding:5px 14px;font-weight:600}.reference-bar .button:hover{background:#24556b}

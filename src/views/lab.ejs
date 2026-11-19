@@ -1,5 +1,5 @@
 <%- include('partials/head') %>
-<a href="/labs">← ห้องปฏิบัติการ</a>
+<a class="button quiet" href="/labs">ห้อง LAB</a>
 <div class="page-heading"><div><div class="eyebrow">OT / ICS SIMULATION</div><h1><%= lab.title %></h1></div><span class="chip"><%= user.role==='admin'?'ADMIN PREVIEW':'TRAINING MODE' %></span></div>
 <div id="simulator" data-lab="<%= lab.id %>" data-type="<%= lab.simulator %>" data-target="<%= lab.target %>">
 <div class="lab-workspace">
