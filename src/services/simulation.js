@@ -1,4 +1,7 @@
+import { benchTemplates, benchTypes, benchInitial, benchAction, benchEvaluate } from './bench.js';
 import { httpError } from './security.js';
+
+export const referenceTypes = new Set(['classify','sensor','plc','hmi','scada','bench-power','bench-usb','bench-float','bench-output']);
 
 export const templates = [
   { key: 'classify', name: 'OT / IT / IoT / IIoT', title: 'OT, IT, IoT & IIoT', summary: 'จำแนกอุปกรณ์จากหน้าที่และบริบทการใช้งาน', lesson: 'IT ประมวลผลข้อมูลธุรกิจ OT ควบคุมกระบวนการทางกายภาพ IoT เชื่อมอุปกรณ์ทั่วไปผ่านเครือข่าย และ IIoT ใช้เทคโนโลยีลักษณะนี้ในอุตสาหกรรม หมวดหมู่ในบทนี้เลือกตามบริบทหลักของอุปกรณ์', mission: 'เลือกอุปกรณ์ทีละชิ้น แล้วจัดลงหมวดหมู่ให้ครบทั้งสี่รายการ', image: 1, target: 0 },
@@ -7,7 +10,8 @@ export const templates = [
   { key: 'hmi', name: 'HMI Control', title: 'Human-Machine Interface', summary: 'ส่งคำสั่ง ตรวจ feedback และรับทราบ alarm', lesson: 'คำสั่ง START และ feedback ของปั๊มเป็นคนละสัญญาณ หากไม่มี feedback หลังพ้นเวลารอ ระบบตัวอย่างแสดง alarm ผู้ปฏิบัติงานต้องตรวจสอบ feedback และรับทราบ alarm', mission: 'กด START เดินเวลา 3 รอบจนเกิด alarm จากนั้นเปิด feedback แล้วกด ACK', image: 4, target: 0 },
   { key: 'scada', name: 'RTU & SCADA', title: 'RTU & SCADA', summary: 'สำรวจค่าหน้างานและส่งข้อมูลไปยังห้องควบคุม', lesson: 'RTU ส่งค่าที่วัดได้ให้ SCADA ค่าในห้องควบคุมเป็นค่าที่ได้รับล่าสุด เมื่อการสื่อสารขาดหาย ค่าอาจค้างอยู่ ในบทนี้สถานี A มีเกณฑ์ HIGH ที่ระดับเป้าหมายหรือสูงกว่า', mission: 'ทำให้สถานี A ถึงระดับ HIGH ส่งข้อมูลเข้า SCADA ตัดการสื่อสารและทดลองส่งอีกครั้ง แล้วเชื่อมต่อกลับและส่งข้อมูลใหม่', image: 5, target: 70 },
   { key: 'build', name: 'Build an ICS', title: 'Build an ICS', summary: 'ต่อสัญญาณ Sensor, PLC, Pump และ HMI ให้ครบวงจร', lesson: 'Sensor ต่อเข้า PLC input, PLC output ต่อ actuator และ HMI ส่งคำสั่งเข้า PLC ในแบบจำลองนี้เมื่อเปิดระบบและต่อครบวงจร ปั๊มจะถ่ายน้ำจนถึงระดับเป้าหมายแล้วหยุด', mission: 'ต่อสายสัญญาณทั้งสาม เปิดระบบและเดินเวลาจนปั๊มหยุดที่ระดับเป้าหมาย', image: 6, target: 60 },
-  { key: 'conveyor', name: 'Conveyor Sorting', title: 'Conveyor & Color Sensor', summary: 'ลากกล่องขึ้นสายพาน ตรวจสี และคัดแยกด้วยแขนผลัก', lesson: 'มอเตอร์ขับสายพานให้กล่องผ่าน color sensor จากนั้น actuator เปลี่ยนเส้นทาง กล่องสีน้ำเงินต้องไปช่อง GOOD และกล่องสีแดงไปช่อง REJECT หากคัดผิดสามารถลากกล่องเดิมมาลองใหม่ได้', mission: 'ลากกล่องขึ้นสายพาน คลิกมอเตอร์เพื่อเริ่ม แล้วคลิกแขนคัดแยกให้กล่องน้ำเงินไป GOOD และกล่องแดงไป REJECT จนครบ 3 กล่อง', image: 3, target: 0 }
+  { key: 'conveyor', name: 'Conveyor Sorting', title: 'Conveyor & Color Sensor', summary: 'ลากกล่องขึ้นสายพาน ตรวจสี และคัดแยกด้วยแขนผลัก', lesson: 'มอเตอร์ขับสายพานให้กล่องผ่าน color sensor จากนั้น actuator เปลี่ยนเส้นทาง กล่องสีน้ำเงินต้องไปช่อง GOOD และกล่องสีแดงไปช่อง REJECT หากคัดผิดสามารถลากกล่องเดิมมาลองใหม่ได้', mission: 'ลากกล่องขึ้นสายพาน คลิกมอเตอร์เพื่อเริ่ม แล้วคลิกแขนคัดแยกให้กล่องน้ำเงินไป GOOD และกล่องแดงไป REJECT จนครบ 3 กล่อง', image: 3, target: 0 },
+  ...benchTemplates
 ];
 export const devices = [
   { name: 'ERP • ระบบใบสั่งซื้อ', answer: 'IT' },
@@ -16,25 +20,29 @@ export const devices = [
   { name: 'Wireless vibration sensor • วิเคราะห์เครื่องจักร', answer: 'IIoT' }
 ];
 export function initialState(type) {
+  if(benchTypes.has(type))return benchInitial(type);
   switch (type) {
     case 'conveyor': return { parcel: null, position: 0, moving: false, gate: 'good', sorted: [], last: '' };
     case 'classify': return { assignments: {} };
     case 'sensor': return { level: 20, valve: false, filled: false };
-    case 'plc': return { source: true, full: false, emergency: false, command: false, ran: false, interlocked: false };
+    case 'plc': return { source: true, full: false, emergency: false, command: false, ran: false, interlocked: false, inputWired: false };
     case 'hmi': return { command: false, feedback: false, ticks: 0, alarm: false, alarmSeen: false, acknowledged: false };
-    case 'scada': return { level: 20, remote: 20, connected: true, sent: false, outageSeen: false, recovered: false, history: [20] };
+    case 'scada': return { level: 20, remote: 20, connected: true, sent: false, outageSeen: false, recovered: false, history: [20], levelB:18, remoteB:18, connectedB:false, pumpA:true, pumpB:false, remotePumpA:true, remotePumpB:false };
     case 'build': return { wires: {}, power: false, level: 20, ran: false };
     default: throw httpError(400, 'ไม่พบชนิดของแบบจำลอง');
   }
 }
 export function pumpOn(type, state, target) {
-  if (type === 'plc') return state.command && state.source && !state.full && !state.emergency;
+  if (type === 'scada') return state.pumpA ?? true;
+  if (type === 'plc') return (state.inputWired ?? state.ran) && state.command && state.source && !state.full && !state.emergency;
   if (type === 'hmi') return state.command && state.feedback;
   if (type === 'build') return state.power && state.wires.sensor === 'PLC input' && state.wires.plc === 'Pump' && state.wires.hmi === 'PLC' && state.level < target;
   return false;
 }
 export function applyAction(type, previous, action, target) {
+  if(benchTypes.has(type))return benchAction(type,previous,action);
   const state = structuredClone(previous);
+  if(type==='scada'){state.pumpA ??= true;state.pumpB ??= false;}
   const bool = (key) => { state[key] = !state[key]; };
   switch (type) {
     case 'conveyor':
@@ -63,13 +71,15 @@ export function applyAction(type, previous, action, target) {
       state.assignments[action.device] = action.category;
       return state;
     case 'sensor':
-      if (action.kind === 'valve') bool('valve');
+      if (action.kind==='level' && Number.isInteger(action.value) && action.value>=0 && action.value<=100) state.level=action.value;
+      else if (action.kind === 'valve') bool('valve');
       else if (action.kind === 'tick') {
         if (state.valve) { state.level = Math.min(100, state.level + 5); state.filled = true; }
       } else break;
       return state;
     case 'plc':
-      if (['source', 'full', 'emergency'].includes(action.kind)) bool(action.kind);
+      if(action.kind==='wire' && action.from==='sensor' && ['I0.0','I0.1'].includes(action.to)) state.inputWired=action.to==='I0.0';
+      else if (['source', 'full', 'emergency'].includes(action.kind)) bool(action.kind);
       else if (action.kind === 'start') state.command = true;
       else if (action.kind === 'stop') state.command = false;
       else break;
@@ -87,11 +97,14 @@ export function applyAction(type, previous, action, target) {
       } else break;
       return state;
     case 'scada':
-      if (action.kind === 'level' && Number.isInteger(action.value) && action.value >= 0 && action.value <= 100) state.level = action.value;
-      else if (action.kind === 'connection') bool('connected');
+      if(action.kind==='pump')bool(action.station==='B'?'pumpB':'pumpA');
+      else if (action.kind === 'level' && Number.isInteger(action.value) && action.value >= 0 && action.value <= 100) {if(action.station==='B')state.levelB=action.value;else state.level=action.value;}
+      else if (action.kind === 'connection') bool(action.station==='B'?'connectedB':'connected');
       else if (action.kind === 'send') {
+        if(state.connectedB){state.remoteB=state.levelB ?? 18;state.remotePumpB=state.pumpB ?? false;}
         if (state.connected) {
           state.remote = state.level;
+          state.remotePumpA=state.pumpA ?? true;
           state.history = [...state.history, state.remote].slice(-20);
           if (state.remote >= target) state.sent = true;
           if (state.outageSeen) state.recovered = true;
@@ -109,6 +122,7 @@ export function applyAction(type, previous, action, target) {
   throw httpError(400, 'คำสั่งจำลองไม่ถูกต้อง');
 }
 export function evaluate(type, state, target) {
+  if(benchTypes.has(type))return benchEvaluate(type,state);
   const checks = {
     conveyor: [0,1,2].map(id => ({ label: 'กล่อง '+(id+1)+' → '+(id===1?'REJECT':'GOOD'), done: state.sorted?.includes(id) })),
     classify: devices.map((device, i) => ({ label: device.name, done: state.assignments?.[i] === device.answer })),

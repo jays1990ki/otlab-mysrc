@@ -1,3 +1,4 @@
+import { referenceTypes } from './services/simulation.js';
 import express from 'express';
 import helmet from 'helmet';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,8 @@ export function createApp() {
     res.locals.user=null;
     res.locals.csrf='';
     res.locals.settings={site_name:'OT/ICS Basic Lab',organization:'ME Corporation',intro:''};
-    res.locals.version='1.3.0';
+    res.locals.version='1.4.0';
+    res.locals.labCover=lab=>referenceTypes.has(lab.simulator)?'/assets/images/reference/'+lab.simulator+'.png':'/assets/images/stage-'+lab.image_id+'.webp';
     next();
   });
   app.use(express.urlencoded({extended:false,limit:'32kb'}));
@@ -32,8 +34,8 @@ export function createApp() {
     try {
       await ready();
       await query('SELECT 1');
-      res.json({status:'ok',version:'1.3.0',database:'connected'});
-    } catch { res.status(503).json({status:'unavailable',version:'1.3.0'}); }
+      res.json({status:'ok',version:'1.4.0',database:'connected'});
+    } catch { res.status(503).json({status:'unavailable',version:'1.4.0'}); }
   });
   app.use(async(req,res,next)=>{
     try {

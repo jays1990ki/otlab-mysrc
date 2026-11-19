@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { query, first, transaction, audit } from '../db/index.js';
 import { token, httpError } from '../services/security.js';
 import { requireUser } from '../services/auth.js';
-import { initialState, applyAction, evaluate, devices, pumpOn } from '../services/simulation.js';
+import { initialState, applyAction, evaluate, devices, pumpOn, referenceTypes } from '../services/simulation.js';
 
 export const labRouter = Router();
 function visibleLab(req,id,connection) {
@@ -14,7 +14,7 @@ export function publicRun(run) {
     started_at:run.started_at || null, revision:run.revision, target:run.target, pump:pumpOn(run.simulator,state,run.target), result:evaluate(run.simulator,state,run.target) };
 }
 labRouter.get('/',async(req,res)=>{
-  const labs = await query('SELECT id,title,summary,image_id FROM ot_labs WHERE published=1 AND archived=0 ORDER BY sort_order,id LIMIT 12');
+  const labs = await query('SELECT id,title,summary,image_id,simulator FROM ot_labs WHERE published=1 AND archived=0 ORDER BY sort_order,id LIMIT 12');
   res.render('home',{title:res.locals.settings.site_name,labs});
 });
 labRouter.get('/labs',requireUser,async(req,res)=>{
@@ -25,6 +25,10 @@ labRouter.get('/lab/:id',requireUser,async(req,res)=>{
   const lab=await visibleLab(req,req.params.id);
   if(!lab) throw httpError(404,'ไม่พบแล็บที่เผยแพร่');
   const runs=await query('SELECT id,score,status,started_at,revision FROM ot_runs WHERE user_id=? AND lab_id=? ORDER BY started_at DESC LIMIT 5',[req.user.id,lab.id]);
+  if(referenceTypes.has(lab.simulator)){
+    const links=await query("SELECT id,simulator,title FROM ot_labs WHERE archived=0 AND (published=1 OR ?='admin') ORDER BY sort_order,id",[req.user.role]);
+    return res.render('reference-lab',{title:lab.title,lab,runs,links});
+  }
   res.render('lab',{title:lab.title,lab,devices,runs});
 });
 labRouter.get('/results',requireUser,async(req,res)=>{

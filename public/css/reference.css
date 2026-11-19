@@ -1,0 +1,22 @@
+:root{color-scheme:dark;font:14px/1.5 Inter,system-ui,sans-serif;background:#07121b;color:#eaf8ff}
+*{box-sizing:border-box}body{margin:0}button,a{touch-action:manipulation}button{font:inherit;cursor:pointer}a{color:#77ebf5;text-decoration:none}
+.reference-app{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#07121b}
+.reference-stage{position:relative;max-width:100vw;width:min(100vw,calc((100dvh - 48px)*1672/941));aspect-ratio:1672/941;overflow:hidden;touch-action:pan-y;box-shadow:0 15px 70px #0008}
+.reference-stage.crop-browser{width:min(100vw,calc((100dvh - 48px)*1672/869));aspect-ratio:1672/869}
+canvas{display:block;width:100%;height:100%;background:#102734}
+#reference-hotspots{position:absolute;inset:0;pointer-events:none}
+.ref-hit{position:absolute;border:2px solid transparent;background:transparent;border-radius:8px;padding:0;pointer-events:auto;touch-action:none}
+.ref-hit:hover,.ref-hit:focus-visible{border-color:#83f7ff;background:#5fffff12;box-shadow:0 0 15px #4ee5f555;outline:none}
+.ref-hit:disabled{pointer-events:none;cursor:default;opacity:1}
+.ref-hit.draggable{cursor:grab}
+.ref-hit.drop-ready{border:3px dashed #ffcf78;background:#ffcf7815}
+.reference-stage.dragging,.reference-stage.dragging .ref-hit{cursor:grabbing}
+.reference-bar{width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding:8px 12px;background:#0c1e2d;border-top:1px solid #355164}
+.reference-bar button,dialog button{border:1px solid #54798d;border-radius:5px;background:#19394b;color:#eafaff;padding:5px 10px}
+.reference-bar button:hover{border-color:#5ee7f5}
+#reference-feedback{color:#b5dbe7;flex:1;min-width:200px}
+#reference-feedback.error{color:#ffd0b1}#reference-score{color:#77ffc1;font-weight:700}
+dialog{max-width:660px;width:calc(100% - 32px);max-height:85dvh;overflow:auto;border:1px solid #6eeaf4;border-radius:14px;background:#102a3c;color:#edf7fc;padding:26px;font-size:16px}
+dialog::backdrop{background:#03111bca}dialog h1{font-size:25px}.lesson{white-space:pre-line;color:#afc9d8}li{padding:6px 0}li.done{color:#86f8b0}
+@media(max-width:800px){.reference-app{justify-content:flex-start}.reference-stage,.reference-stage.crop-browser{width:100vw}.reference-bar{font-size:11px;gap:6px}.reference-bar button{font-size:11px}#reference-feedback{flex-basis:100%;order:2}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
