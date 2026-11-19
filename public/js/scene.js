@@ -13,6 +13,45 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
   let previousTime = 0;
   let enabled = false;
   const motion = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let atlas;
+  let backdrop;
+  const spriteBounds = [
+    [86,7,202,351],[376,72,330,239],[742,71,324,242],[1107,85,319,194],
+    [11,415,342,257],[383,401,322,294],[813,389,179,308],[1180,366,191,331],
+    [0,827,362,194],[393,780,301,252],[754,780,302,252],[1092,769,350,257]
+  ];
+  function loadImage(url) {
+    return new Promise((resolve,reject)=>{
+      const image=new Image();
+      image.onload=()=>resolve(image);
+      image.onerror=()=>reject(new Error('โหลดภาพอุปกรณ์ไม่สำเร็จ กรุณาโหลดหน้าใหม่'));
+      image.src=url;
+    });
+  }
+  const ready=Promise.all([
+    loadImage('/assets/images/game/equipment-atlas.png'),
+    loadImage('/assets/images/game/workshop.png')
+  ]).then(images=>{
+    [atlas,backdrop]=images;
+    canvas.dataset.assets='ready';
+  });
+  function sprite(index,x,y,w,h,opacity=1) {
+    if(!atlas)return;
+    const [sx,sy,sw,sh]=spriteBounds[index];
+    ctx.save();ctx.globalAlpha=opacity;
+    ctx.drawImage(atlas,sx,sy,sw,sh,x,y,w,h);
+    ctx.restore();
+  }
+  function glow(x,y,w,h,on=true) {
+    if(!on)return;
+    ctx.save();ctx.shadowColor=palette.cyan;ctx.shadowBlur=20;
+    ctx.strokeStyle='#76e6ec99';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.stroke();ctx.restore();
+  }
+  function displayPanel(x,y,w,h) {
+    sprite(4,x,y,w,h);
+  }
+
 
   function text(value,x,y,size=20,color=palette.text,align='center') {
     ctx.font = '600 '+size+'px system-ui';
@@ -22,11 +61,6 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
   function rect(x,y,w,h,color='#17303e',stroke='#4b7185',radius=12) {
     ctx.fillStyle=color;ctx.strokeStyle=stroke;ctx.lineWidth=2;
     ctx.beginPath();ctx.roundRect(x,y,w,h,radius);ctx.fill();ctx.stroke();
-  }
-  function metal(x,y,w,h) {
-    const gradient=ctx.createLinearGradient(x,y,x+w,y);
-    gradient.addColorStop(0,'#365465');gradient.addColorStop(.3,'#9bb5c1');gradient.addColorStop(.55,'#557283');gradient.addColorStop(1,'#203c4d');
-    rect(x,y,w,h,gradient,'#99b9c8',18);
   }
   function circle(x,y,r,color,stroke='#b7d3df') {
     ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=3;ctx.stroke();
@@ -45,53 +79,50 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
       ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();ctx.setLineDash([]);
     }
   }
-  function rotor(x,y,r,on) {
-    circle(x,y,r,on?'#15586a':'#203e4e');
-    ctx.save();ctx.translate(x,y);ctx.rotate(on?phase*3:0);
-    for(let i=0;i<4;i++) {ctx.rotate(Math.PI/2);rect(-5,-r+8,10,r-10,on?palette.cyan:'#7198aa','transparent',3);}
-    ctx.restore();circle(x,y,7,'#dcebf1');
-  }
   function tank(x,y,level,title,reading=level) {
-    metal(x,y,165,280);
-    ctx.save();ctx.beginPath();ctx.roundRect(x+12,y+14,141,248,8);ctx.clip();
-    ctx.fillStyle='#0c2839';ctx.fillRect(x+12,y+14,141,248);
-    const surface=y+262-level*2.48;
-    ctx.beginPath();ctx.moveTo(x+12,y+262);ctx.lineTo(x+12,surface);
-    for(let dx=0;dx<=142;dx+=4)ctx.lineTo(x+12+dx,surface+Math.sin(dx/20+phase*2)*3);
-    ctx.lineTo(x+154,y+262);ctx.closePath();
-    const water=ctx.createLinearGradient(0,surface,0,y+262);water.addColorStop(0,'#57dded');water.addColorStop(1,'#08748e');ctx.fillStyle=water;ctx.fill();
+    sprite(0,x-6,y-10,177,314);
+    // The water mask fits inside the glass window of the generated tank sprite.
+    const glass={x:x+28,y:y+71,w:112,h:145};
+    const surface=glass.y+glass.h-level*glass.h/100;
+    ctx.save();ctx.beginPath();ctx.roundRect(glass.x,glass.y,glass.w,glass.h,8);ctx.clip();
+    ctx.beginPath();ctx.moveTo(glass.x,glass.y+glass.h);ctx.lineTo(glass.x,surface);
+    for(let dx=0;dx<=glass.w;dx+=4)ctx.lineTo(glass.x+dx,surface+Math.sin(dx/16+phase*2)*2);
+    ctx.lineTo(glass.x+glass.w,glass.y+glass.h);ctx.closePath();
+    const water=ctx.createLinearGradient(0,surface,0,glass.y+glass.h);
+    water.addColorStop(0,'#66eff7d9');water.addColorStop(1,'#087b9bcf');
+    ctx.fillStyle=water;ctx.fill();
+    ctx.strokeStyle='#d7ffff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(glass.x,surface);ctx.lineTo(glass.x+glass.w,surface);ctx.stroke();
     ctx.restore();
-    for(let i=0;i<=4;i++) {ctx.strokeStyle='#b2d4df';ctx.beginPath();ctx.moveTo(x+125,y+30+i*50);ctx.lineTo(x+145,y+30+i*50);ctx.stroke();}
-    text(Math.round(reading)+'%',x+77,y+160,31);
-    text(title,x+82,y-20,22,palette.cyan);
-    rect(x+20,y+280,30,26,'#405f70');rect(x+115,y+280,30,26,'#405f70');
+    text(Math.round(reading)+'%',x+82,y+157,27);
+    text(title,x+82,y-25,21,palette.cyan);
   }
   function motor(x,y,on) {
-    metal(x,y,150,95);
-    for(let i=0;i<6;i++){ctx.strokeStyle='#24495c';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x+20+i*17,y+15);ctx.lineTo(x+20+i*17,y+80);ctx.stroke();}
-    rotor(x+155,y+48,45,on);
-    rect(x+5,y+95,160,15,'#587988');
+    sprite(1,x-20,y-22,230,150);
+    if(on) {
+      ctx.save();ctx.translate(x+179,y+52);ctx.rotate(phase*3);
+      ctx.strokeStyle='#bde9efcc';ctx.lineWidth=3;
+      for(let i=0;i<5;i++){
+        ctx.rotate(Math.PI*2/5);ctx.beginPath();ctx.moveTo(4,0);ctx.quadraticCurveTo(24,-12,31,0);ctx.stroke();
+      }
+      ctx.restore();glow(x-20,y-22,230,150);
+    }
   }
   function plc(x,y) {
-    metal(x,y,220,150);
-    rect(x+16,y+15,188,82,'#0b2332');
-    text('PLC',x+55,y+49,25,palette.cyan);
-    for(let i=0;i<4;i++)lamp(x+30+i*40,y+78,Boolean(run.pump) || i===0,'');
-    for(let i=0;i<8;i++)rect(x+13+i*25,y+118,16,20,'#25485a','#90b8c8',3);
+    sprite(2,x-10,y-10,240,170);
+    lamp(x+42,y+65,true,'');
+    lamp(x+65,y+65,Boolean(run.pump),'');
   }
   function valve(x,y,on) {
-    path([[x-70,y+50],[x+70,y+50]],on?palette.cyan:'#597c8e',24,on);
-    ctx.fillStyle='#92b7c6';ctx.beginPath();ctx.moveTo(x-35,y+25);ctx.lineTo(x+35,y+75);ctx.lineTo(x+35,y+25);ctx.lineTo(x-35,y+75);ctx.closePath();ctx.fill();
-    path([[x,y+50],[x,y-10]],'#8cb0c2',12);
-    ctx.save();ctx.translate(x,y-15);ctx.rotate(on?Math.PI/2:0);
-    rect(-48,-8,96,16,on?palette.green:'#f6be7c','transparent',5);ctx.restore();
-    text(on?'เปิดอยู่':run.status==='passed'?'วาล์วปิดแล้ว':'คลิกเปิดวาล์ว',x,y+110,23,on?palette.green:palette.amber);
+    sprite(3,x-100,y-35,200,130);
+    path([[x-115,y+50],[x-100,y+50]],on?palette.cyan:'#789aaa',15,on);
+    path([[x+100,y+50],[x+115,y+50]],on?palette.cyan:'#789aaa',15,on);
+    glow(x-103,y-38,206,136,on);
+    text(on?'เปิดอยู่':run.status==='passed'?'วาล์วปิดแล้ว':'คลิกเปิดวาล์ว',x,y+115,23,on?palette.green:palette.amber);
   }
   function deviceIcon(kind,x,y) {
-    if(kind===0) {rect(x-52,y-38,104,65,'#203e50');rect(x-43,y-29,86,45,'#53c2db');path([[x,y+28],[x,y+46]],'#a6c8d8',12);path([[x-35,y+49],[x+35,y+49]],'#a6c8d8',10);}
-    if(kind===1) {metal(x-55,y-40,110,80);rect(x-43,y-27,86,36,'#0c2638');for(let i=0;i<5;i++)lamp(x-35+i*17,y+23,i%2===0,'');}
-    if(kind===2) {circle(x,y-10,34,'#ffe9a1');rect(x-16,y+21,32,24,'#87a8ba');if(motion){ctx.strokeStyle='#ffe9a1';for(let i=0;i<8;i++){const angle=i*Math.PI/4;ctx.beginPath();ctx.moveTo(x+Math.cos(angle)*44,y-10+Math.sin(angle)*44);ctx.lineTo(x+Math.cos(angle)*55,y-10+Math.sin(angle)*55);ctx.stroke();}}}
-    if(kind===3) {metal(x-30,y-35,60,70);circle(x,y-3,15,palette.cyan);path([[x,y-35],[x,y-65]],'#86b8cf',6);for(let i=1;i<3;i++){ctx.strokeStyle=palette.cyan;ctx.beginPath();ctx.arc(x,y-60,15+i*12,Math.PI,Math.PI*2);ctx.stroke();}}
+    const item=[5,2,6,7][kind];
+    const dimensions=[[145,120],[145,110],[77,125],[80,135]][kind];
+    sprite(item,x-dimensions[0]/2,y-dimensions[1]/2,...dimensions);
   }
   function add(id,x,y,w,h,label,action,drag,drop) {
     regions.push({id,x,y,w,h,label,action,drag,drop});
@@ -125,10 +156,10 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
     text('อุปกรณ์ทำหน้าที่อะไร? ลากภาพไปวางในหมวดที่ใช่',500,40,24);
   }
   function drawBuild(s) {
-    tank(760,320,displayedLevel,'PROCESS',s.level);
+    tank(760,335,displayedLevel,'PROCESS',s.level);
     deviceIcon(3,150,150);text('LEVEL SENSOR',150,240,21);
     plc(395,200);
-    rect(55,390,220,145,'#325163');rect(72,407,186,104,'#102b3b');text('HMI',165,453,30,palette.cyan);text('START COMMAND',165,488,17);
+    displayPanel(45,380,240,165);text('HMI',165,450,28,palette.cyan);text('START COMMAND',165,483,16);
     motor(760,170,run.pump);
     const src={sensor:[265,170],plc:[655,275],hmi:[300,460]};
     const dest={'PLC input':[370,225],PLC:[370,315],Pump:[740,220],HMI:[50,460]};
@@ -147,31 +178,32 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
     for(let i=0;i<3;i++) {
       const x=55+i*150;
       if(!s.sorted.includes(i) && s.parcel!==i) {
-        rect(x,90,115,100,i===1?'#b84b50':'#2789b7',i===1?'#ffc0b8':'#a0e2ff');
-        text('BOX '+(i+1),x+57,145,20);text('ลากขึ้นสายพาน',x+57,175,14);
+        sprite(i===1?10:9,x,85,115,100);
+        text('BOX '+(i+1),x+57,158,17);text('ลากขึ้นสายพาน',x+57,205,15);
         add('parcel-'+i,x,90,115,100,'ลากกล่อง '+(i+1),null,{kind:'parcel',key:String(i)});
       }
     }
-    rect(65,310,720,100,'#243c48','#8eafbe',35);
-    ctx.save();ctx.beginPath();ctx.roundRect(73,318,704,84,28);ctx.clip();
-    for(let i=-1;i<20;i++){const x=80+i*42+(s.moving?phase*45%42:0);path([[x,322],[x,398]],'#587b8d',8);}
-    ctx.restore();rotor(110,360,33,s.moving);rotor(738,360,33,s.moving);
-    rect(80,420,22,135,'#536f7f');rect(725,420,22,135,'#536f7f');
+    sprite(8,65,300,720,280);
+    ctx.save();ctx.beginPath();ctx.roundRect(100,323,630,53,8);ctx.clip();
+    ctx.strokeStyle='#82a8b355';ctx.lineWidth=2;
+    for(let i=-1;i<22;i++){const x=100+i*35+(s.moving?phase*45%35:0);ctx.beginPath();ctx.moveTo(x,327);ctx.lineTo(x+12,365);ctx.stroke();}
+    ctx.restore();
     rect(80,220,180,65,'#173d50',palette.cyan);text('วางกล่องที่นี่ ↓',170,260,21,palette.cyan);
     add('belt-load',65,215,240,190,'วางกล่องบนสายพาน',null,null,{kind:'belt',key:'load'});
     if(s.parcel!==null) {
       const x=145+displayedPosition*110;
-      rect(x,260,85,75,s.parcel===1?'#b84b50':'#2789b7');
-      text('BOX '+(s.parcel+1),x+42,305,18);
+      sprite(s.parcel===1?10:9,x,260,85,75);
+      text('BOX '+(s.parcel+1),x+42,308,16);
     }
-    rect(450,200,70,65,'#456574');circle(485,240,18,s.parcel!==null&&s.position>=2?(s.parcel===1?palette.red:palette.cyan):'#213c4c');
+    sprite(7,450,187,70,105);circle(485,247,8,s.parcel!==null&&s.position>=2?(s.parcel===1?palette.red:palette.cyan):'#213c4c');
     text('COLOR SENSOR',485,185,19,palette.cyan);
     path([[485,266],[485,310]],s.parcel!==null&&s.position>=2?palette.red:'#3b626f',5);
     rect(815,230,150,120,'#184b43',palette.green);text('GOOD',890,282,25,palette.green);
     rect(815,440,150,120,'#5c3036',palette.red);text('REJECT',890,493,24,palette.red);
     text(s.sorted.filter(id=>id!==1).length+' กล่อง',890,324,18,palette.green);
     text(s.sorted.includes(1)?'1 กล่อง':'0 กล่อง',890,535,18,palette.red);
-    path([[730,360],[810,s.gate==='good'?290:490]],palette.amber,18);
+    sprite(11,655,235,160,135);
+    path([[745,352],[810,s.gate==='good'?290:490]],palette.amber,6);
     text('คลิกแขนคัดแยก',700,205,21,palette.amber);
     add('gate',660,210,155,270,'เปลี่ยนทิศทางแขนคัดแยก',{kind:'gate'});
     motor(340,460,s.moving);text('คลิกมอเตอร์ '+(s.moving?'STOP':'START'),430,610,22,palette.cyan);
@@ -183,7 +215,7 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
       tank(90,160,displayedLevel,'RTU / STATION A',s.level);
       deviceIcon(3,400,180);
       for(let i=0;i<4;i++) {ctx.strokeStyle=s.connected?palette.cyan:'#47616f';ctx.globalAlpha=s.connected ? .4+.6*Math.sin(phase*2+i)**2 : .4;ctx.beginPath();ctx.arc(450,240,50+i*22,-.8,.8);ctx.stroke();ctx.globalAlpha=1;}
-      rect(650,140,285,215,'#2b4b5e');rect(668,157,249,175,'#092b3b');text('SCADA',790,200,30,palette.cyan);text(s.remote+'%',790,265,44,s.remote>=run.target?palette.amber:palette.green);text(s.remote>=run.target?'HIGH ALARM':'NORMAL',790,310,22);
+      displayPanel(640,125,305,245);text('SCADA',790,200,28,palette.cyan);text(s.remote+'%',790,265,44,s.remote>=run.target?palette.amber:palette.green);text(s.remote>=run.target?'HIGH ALARM':'NORMAL',790,310,22);
       text('คลิกถัง +5%',170,520,24,palette.cyan);add('level',80,140,190,390,'เพิ่มระดับสถานีทีละ 5%',{kind:'level',value:(s.level+5)%105});
       rect(310,410,260,75,s.connected?'#1f4d43':'#5b3036');text(s.connected?'คลิกตัดการสื่อสาร':'คลิกเชื่อมต่อกลับ',440,456,23);
       add('connection',310,410,260,75,'ตัดหรือเชื่อมต่อการสื่อสาร',{kind:'connection'});
@@ -211,7 +243,7 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
         circle(675,120,36,s.emergency?palette.red:'#b33139');text('E-STOP',675,184,17,palette.red);
         add('emergency',630,75,90,110,'กดหรือปล่อย Emergency Stop',{kind:'emergency'});
       } else {
-        rect(330,65,365,180,'#345468');rect(350,85,325,135,'#102a3a');text('HMI / คลิก START',510,118,22,palette.cyan);
+        displayPanel(325,50,375,220);text('HMI / คลิก START',510,118,22,palette.cyan);
         text(s.alarm?'ALARM: NO FEEDBACK':on?'RUNNING':s.command?'WAITING FEEDBACK':'STOPPED',510,158,21,s.alarm?palette.red:palette.green);
         rect(380,180,110,28,'#23644c');text('START',435,201,16);
         rect(520,180,110,28,'#754047');text('STOP',575,201,16);
@@ -227,10 +259,8 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
     if(!run)return;
     regions=[];
     ctx.clearRect(0,0,1000,640);
-    const bg=ctx.createLinearGradient(0,0,0,640);bg.addColorStop(0,'#193545');bg.addColorStop(1,'#091d2b');ctx.fillStyle=bg;ctx.fillRect(0,0,1000,640);
-    ctx.strokeStyle='#244656';ctx.lineWidth=1;
-    for(let x=0;x<1000;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,640);ctx.stroke();}
-    for(let y=0;y<640;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(1000,y);ctx.stroke();}
+    if(backdrop)ctx.drawImage(backdrop,0,0,1000,640);
+    ctx.fillStyle='#07172550';ctx.fillRect(0,0,1000,640);
     if(type==='classify')drawClassify(run.state);
     else if(type==='build')drawBuild(run.state);
     else if(type==='conveyor')drawConveyor(run.state);
@@ -240,7 +270,8 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
       if(gesture.source.drag.kind==='wire'){
         path([[gesture.source.x+gesture.source.w/2,gesture.source.y+gesture.source.h/2],[gesture.current.x,gesture.current.y]],palette.amber,6);
       } else {
-        rect(gesture.current.x-55,gesture.current.y-35,110,70,'#27566a',palette.amber);text(gesture.source.drag.kind==='parcel'?'BOX '+(Number(gesture.source.drag.key)+1):'อุปกรณ์',gesture.current.x,gesture.current.y+8,18);
+        if(gesture.source.drag.kind==='parcel')sprite(Number(gesture.source.drag.key)===1?10:9,gesture.current.x-55,gesture.current.y-45,110,90);
+        else deviceIcon(Number(gesture.source.drag.key),gesture.current.x,gesture.current.y);
       }
       ctx.restore();
     }
@@ -315,6 +346,7 @@ export function createScene({ canvas, overlay, type, onAction, onMessage }) {
   }
   frame=requestAnimationFrame(animate);
   return {
+    ready,
     update(next) {if(next.state.parcel!==lastParcel){displayedPosition=0;lastParcel=next.state.parcel;}run=next;draw();syncHotspots();},
     setEnabled(value) {enabled=value;for(const button of overlay.children)button.disabled=!value;},
     destroy() {cancelAnimationFrame(frame);}

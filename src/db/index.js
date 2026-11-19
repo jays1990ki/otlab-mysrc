@@ -91,7 +91,7 @@ async function migrate() {
       const password = process.env.ADMIN_PASSWORD;
       if (!validName(username) || !validPassword(password)) throw new Error('Set ADMIN_PASSWORD with 12–128 characters for first installation');
       await query("INSERT INTO ot_users(username,display_name,password_hash,role) VALUES(?,?,?,'admin')", [username,'Administrator',await hashPassword(password)],connection);
-      await audit(username,'SYSTEM_INSTALLED','v1.2.0',connection);
+      await audit(username,'SYSTEM_INSTALLED','v1.3.0',connection);
     }
   } finally {
     if (locked) await connection.query("SELECT RELEASE_LOCK(CONCAT('ot_lab_', LEFT(SHA2(DATABASE(),256),40)))");

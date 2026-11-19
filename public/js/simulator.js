@@ -73,6 +73,7 @@ if (root) {
     clearTimeout(autoTimer);
     lock(true);
     try {
+      await scene.ready;
       run = await request('/api/labs/'+root.dataset.lab+'/start',{reset});
       history = [];
       faulted=false;playing=false;

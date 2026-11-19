@@ -2,4 +2,4 @@ import 'dotenv/config';
 import { createApp } from './src/app.js';
 const app = createApp();
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log('OT/ICS Basic Lab v1.2.0 started'));
+app.listen(port, () => console.log('OT/ICS Basic Lab v1.3.0 started'));
