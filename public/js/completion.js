@@ -1,0 +1,1 @@
+export function updateCompletion(run){const card=document.querySelector('#lab-complete');if(!card)return;card.hidden=run.status!=='passed';if(!card.hidden)document.querySelector('#completion-score').textContent=run.result.score+'%';}

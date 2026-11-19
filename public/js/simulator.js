@@ -1,3 +1,4 @@
+import {updateCompletion} from './completion.js';
 import { createScene } from './scene.js';
 const root = document.querySelector('#simulator');
 if (root) {
@@ -132,6 +133,7 @@ if (root) {
     row.cells[3].textContent=run.result.score+'%';
   }
   function render() {
+    updateCompletion(run);
     const s=run.state;
     label('run-status',run.status==='passed'?'MISSION COMPLETE':'CONNECTED • '+run.actions+' ACTIONS');
     label('valve-control',s.valve?'ปิดวาล์ว':'เปิดวาล์ว');

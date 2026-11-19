@@ -23,3 +23,5 @@
 .scene-actions{flex-wrap:wrap}
 @media(max-width:1000px){.lab-workspace{grid-template-columns:1fr}}
 @media(max-width:600px){.scene-guide{font-size:14px}.scene-hit{border-radius:4px}.scene-help{font-size:11px}}
+
+.lab-card canvas.lab-cover{display:block;width:100%;height:175px;object-fit:cover}.lab-card .image-wrap{overflow:hidden}

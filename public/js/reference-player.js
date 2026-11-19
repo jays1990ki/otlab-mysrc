@@ -1,3 +1,5 @@
+import {updateCompletion} from './completion.js';
+import {industrialMap} from './industrial-content.js';
 import { createReferenceScene } from './reference-scenes.js';
 
 const app=document.querySelector('#reference-app');
@@ -33,16 +35,18 @@ async function request(path,body) {
   if(!response.ok)throw new Error(data.error || 'ทำรายการไม่สำเร็จ');
   return data;
 }
+function instruction(){return industrialMap[type]?(run.state.notice||run.result.checks.find(c=>!c.done)?.label||'ทำ LAB สำเร็จแล้ว'):instructions[type](run.state);}
 function render() {
+  updateCompletion(run);
   scene.update(run);
   app.dataset.status=run.status;
   document.querySelector('#reference-score').textContent=run.result.score+'%';
   document.querySelector('#reference-checks').replaceChildren(...run.result.checks.map(check=>{
     const li=document.createElement('li');li.textContent=(check.done?'✓ ':'○ ')+check.label;li.classList.toggle('done',Boolean(check.done));return li;
   }));
-  document.querySelector('#step-guide').textContent=instructions[type](run.state);
-  if(run.status==='passed')message('✓ ผ่านภารกิจและบันทึกผลแล้ว • เลือกแล็บถัดไปจากตัวเลขบนภาพ หรือกลับห้องแล็บ');
-  else message(instructions[type](run.state));
+  document.querySelector('#step-guide').textContent=instruction();
+  if(run.status==='passed')message('✓ ผ่านภารกิจและบันทึกผลแล้ว • กด LAB ต่อไป หรือกลับหน้าหลัก');
+  else message(instruction());
 }
 function needsTick() {
   if(!run || run.status!=='active')return false;
@@ -97,9 +101,9 @@ function ui(action) {
     else {guide.showModal();clearTimeout(timer);}
   }else if(action==='next'||action==='back'){
     if(action==='next'&&run?.status!=='passed')return message('ทำภารกิจนี้ให้ผ่านก่อนกด Next');
-    const sequence=type.startsWith('bench-')?['bench-power','bench-usb','bench-float','bench-output']:['classify','sensor','plc','hmi','scada','build'];
-    const next=sequence[sequence.indexOf(type)+(action==='next'?1:-1)];
-    if(next)navigate(next);else location.assign('/labs');
+    if(action==='next'){location.assign(document.querySelector('#completion-next').href);return;}
+    const index=links.findIndex(item=>item.href.endsWith('/lab/'+app.dataset.lab));
+    if(index>0)location.assign(links[index-1].href);else location.assign('/labs');
   }else if(action.startsWith('stage-'))navigate(['classify','sensor','plc','hmi','scada','build'][Number(action.slice(6))]);
 }
 document.querySelector('#help').addEventListener('click',()=>ui('help'));

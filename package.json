@@ -1,6 +1,6 @@
 {
   "name": "me-ot-ics-basic-lab",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node app.js",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.0",

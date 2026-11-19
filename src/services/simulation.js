@@ -1,7 +1,8 @@
+import {industrialTemplates,industrialTypes,industrialInitial,industrialAction,industrialEvaluate} from './industrial.js';
 import { benchTemplates, benchTypes, benchInitial, benchAction, benchEvaluate } from './bench.js';
 import { httpError } from './security.js';
 
-export const referenceTypes = new Set(['classify','sensor','plc','hmi','scada','bench-power','bench-usb','bench-float','bench-output']);
+export const referenceTypes = new Set([...industrialTypes,'classify','sensor','plc','hmi','scada','bench-power','bench-usb','bench-float','bench-output']);
 
 export const templates = [
   { key: 'classify', name: 'OT / IT / IoT / IIoT', title: 'OT, IT, IoT & IIoT', summary: 'จำแนกอุปกรณ์จากหน้าที่และบริบทการใช้งาน', lesson: 'IT ประมวลผลข้อมูลธุรกิจ OT ควบคุมกระบวนการทางกายภาพ IoT เชื่อมอุปกรณ์ทั่วไปผ่านเครือข่าย และ IIoT ใช้เทคโนโลยีลักษณะนี้ในอุตสาหกรรม หมวดหมู่ในบทนี้เลือกตามบริบทหลักของอุปกรณ์', mission: 'เลือกอุปกรณ์ทีละชิ้น แล้วจัดลงหมวดหมู่ให้ครบทั้งสี่รายการ', image: 1, target: 0 },
@@ -11,7 +12,8 @@ export const templates = [
   { key: 'scada', name: 'RTU & SCADA', title: 'RTU & SCADA', summary: 'สำรวจค่าหน้างานและส่งข้อมูลไปยังห้องควบคุม', lesson: 'RTU ส่งค่าที่วัดได้ให้ SCADA ค่าในห้องควบคุมเป็นค่าที่ได้รับล่าสุด เมื่อการสื่อสารขาดหาย ค่าอาจค้างอยู่ ในบทนี้สถานี A มีเกณฑ์ HIGH ที่ระดับเป้าหมายหรือสูงกว่า', mission: 'ทำให้สถานี A ถึงระดับ HIGH ส่งข้อมูลเข้า SCADA ตัดการสื่อสารและทดลองส่งอีกครั้ง แล้วเชื่อมต่อกลับและส่งข้อมูลใหม่', image: 5, target: 70 },
   { key: 'build', name: 'Build an ICS', title: 'Build an ICS', summary: 'ต่อสัญญาณ Sensor, PLC, Pump และ HMI ให้ครบวงจร', lesson: 'Sensor ต่อเข้า PLC input, PLC output ต่อ actuator และ HMI ส่งคำสั่งเข้า PLC ในแบบจำลองนี้เมื่อเปิดระบบและต่อครบวงจร ปั๊มจะถ่ายน้ำจนถึงระดับเป้าหมายแล้วหยุด', mission: 'ต่อสายสัญญาณทั้งสาม เปิดระบบและเดินเวลาจนปั๊มหยุดที่ระดับเป้าหมาย', image: 6, target: 60 },
   { key: 'conveyor', name: 'Conveyor Sorting', title: 'Conveyor & Color Sensor', summary: 'ลากกล่องขึ้นสายพาน ตรวจสี และคัดแยกด้วยแขนผลัก', lesson: 'มอเตอร์ขับสายพานให้กล่องผ่าน color sensor จากนั้น actuator เปลี่ยนเส้นทาง กล่องสีน้ำเงินต้องไปช่อง GOOD และกล่องสีแดงไปช่อง REJECT หากคัดผิดสามารถลากกล่องเดิมมาลองใหม่ได้', mission: 'ลากกล่องขึ้นสายพาน คลิกมอเตอร์เพื่อเริ่ม แล้วคลิกแขนคัดแยกให้กล่องน้ำเงินไป GOOD และกล่องแดงไป REJECT จนครบ 3 กล่อง', image: 3, target: 0 },
-  ...benchTemplates
+  ...benchTemplates,
+  ...industrialTemplates
 ];
 export const devices = [
   { name: 'ERP • ระบบใบสั่งซื้อ', answer: 'IT' },
@@ -20,6 +22,7 @@ export const devices = [
   { name: 'Wireless vibration sensor • วิเคราะห์เครื่องจักร', answer: 'IIoT' }
 ];
 export function initialState(type) {
+  if(industrialTypes.has(type))return industrialInitial(type);
   if(benchTypes.has(type))return benchInitial(type);
   switch (type) {
     case 'conveyor': return { parcel: null, position: 0, moving: false, gate: 'good', sorted: [], last: '' };
@@ -40,6 +43,7 @@ export function pumpOn(type, state, target) {
   return false;
 }
 export function applyAction(type, previous, action, target) {
+  if(industrialTypes.has(type))return industrialAction(type,previous,action);
   if(benchTypes.has(type))return benchAction(type,previous,action);
   const state = structuredClone(previous);
   if(type==='scada'){state.pumpA ??= true;state.pumpB ??= false;}
@@ -122,6 +126,7 @@ export function applyAction(type, previous, action, target) {
   throw httpError(400, 'คำสั่งจำลองไม่ถูกต้อง');
 }
 export function evaluate(type, state, target) {
+  if(industrialTypes.has(type))return industrialEvaluate(type,state);
   if(benchTypes.has(type))return benchEvaluate(type,state);
   const checks = {
     conveyor: [0,1,2].map(id => ({ label: 'กล่อง '+(id+1)+' → '+(id===1?'REJECT':'GOOD'), done: state.sorted?.includes(id) })),

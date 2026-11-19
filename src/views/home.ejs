@@ -2,6 +2,6 @@
 <section class="hero"><div class="hero-copy"><div class="eyebrow">INDUSTRIAL TRAINING SIMULATOR</div><h1>สัมผัสการทำงาน<br>ของระบบ <em>OT / ICS</em></h1><p><%= settings.intro %></p><a class="button" href="/labs">เริ่มฝึกปฏิบัติ</a><span class="hero-caption">Sensor · PLC · HMI · RTU · SCADA</span></div><img src="/assets/images/stage-4.webp" alt="โรงงานจำลองและถังน้ำ"></section>
 <div class="section-heading"><h2>แล็บพื้นฐานสำหรับเริ่มลงมือทำ</h2><a class="button quiet" href="/labs">ดู LAB ทั้งหมด</a></div>
 <div class="lab-grid">
-<% for(const lab of labs) { %><a class="lab-card" href="/lab/<%= lab.id %>"><img src="<%= labCover(lab) %>" alt=""><div><h3><%= lab.title %></h3><p><%= lab.summary %></p><span class="button">เข้า LAB</span></div></a><% } %>
+<% for(const lab of labs) { %><a class="lab-card" href="/lab/<%= lab.id %>"><img class="lab-cover" data-simulator="<%= lab.simulator %>" src="<%= labCover(lab) %>" alt="<%= lab.title %>"><div><h3><%= lab.title %></h3><p><%= lab.summary %></p><span class="button">เข้า LAB</span></div></a><% } %>
 </div>
 <%- include('partials/foot') %>

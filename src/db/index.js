@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import { readFile } from 'node:fs/promises';
 import { hashPassword, validName, validPassword } from '../services/security.js';
+import {industrialTemplates} from '../services/industrial.js';
 import { benchTemplates } from '../services/bench.js';
 import { templates } from '../services/simulation.js';
 
@@ -98,12 +99,23 @@ async function migrate() {
         await connection.commit();
       } catch(error){await connection.rollback();throw error;}
     }
+    if (!await first('SELECT version FROM ot_migrations WHERE version=4', [], connection)) {
+      await connection.beginTransaction();
+      try {
+        for(const [index,lab] of industrialTemplates.entries()) {
+          await query('INSERT INTO ot_labs(title,summary,lesson,mission,simulator,image_id,target,sort_order) VALUES(?,?,?,?,?,?,?,?)',
+            [lab.title,lab.summary,lab.lesson,lab.mission,lab.key,lab.image,lab.target,12+index],connection);
+        }
+        await query('INSERT INTO ot_migrations(version) VALUES(4)', [], connection);
+        await connection.commit();
+      } catch(error){await connection.rollback();throw error;}
+    }
     if (!await first("SELECT id FROM ot_users WHERE role='admin' LIMIT 1", [], connection)) {
       const username = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
       const password = process.env.ADMIN_PASSWORD;
       if (!validName(username) || !validPassword(password)) throw new Error('Set ADMIN_PASSWORD with 12–128 characters for first installation');
       await query("INSERT INTO ot_users(username,display_name,password_hash,role) VALUES(?,?,?,'admin')", [username,'Administrator',await hashPassword(password)],connection);
-      await audit(username,'SYSTEM_INSTALLED','v1.5.0',connection);
+      await audit(username,'SYSTEM_INSTALLED','v1.6.0',connection);
     }
   } finally {
     if (locked) await connection.query("SELECT RELEASE_LOCK(CONCAT('ot_lab_', LEFT(SHA2(DATABASE(),256),40)))");

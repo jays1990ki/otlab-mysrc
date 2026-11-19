@@ -1,6 +1,6 @@
 <%- include('partials/head') %>
 <div class="page-heading"><div><div class="eyebrow">LEARNING WORKSPACE</div><h1>ห้องปฏิบัติการ</h1><p>เลือกแล็บ แล้วควบคุมอุปกรณ์เพื่อทำภารกิจให้สำเร็จ</p></div><span class="chip"><%= labs.filter(l=>l.passed>0).length %> / <%= labs.length %> ผ่านแล้ว</span></div>
 <div class="lab-grid"><% for(const [i,lab] of labs.entries()) { %>
-<a class="lab-card" href="/lab/<%= lab.id %>"><div class="image-wrap"><img src="<%= labCover(lab) %>" alt=""><span class="image-chip"><%= lab.passed?'✓ ผ่านแล้ว':lab.published?'พร้อมฝึก':'ซ่อนจากผู้เรียน' %></span></div><div><div class="eyebrow">LAB <%= i+1 %></div><h2><%= lab.title %></h2><p><%= lab.summary %></p><span class="button">เข้า LAB</span></div></a><% } %></div>
+<a class="lab-card" href="/lab/<%= lab.id %>"><div class="image-wrap"><img class="lab-cover" data-simulator="<%= lab.simulator %>" src="<%= labCover(lab) %>" alt="<%= lab.title %>"><span class="image-chip"><%= lab.passed?'✓ ผ่านแล้ว':lab.published?'พร้อมฝึก':'ซ่อนจากผู้เรียน' %></span></div><div><div class="eyebrow">LAB <%= i+1 %></div><h2><%= lab.title %></h2><p><%= lab.summary %></p><span class="button">เข้า LAB</span></div></a><% } %></div>
 <% if(!labs.length) { %><p class="panel">ยังไม่มีแล็บที่เผยแพร่</p><% } %>
 <%- include('partials/foot') %>

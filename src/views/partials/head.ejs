@@ -5,9 +5,11 @@
 <title><%= title %> · <%= settings.site_name %></title>
 <link rel="stylesheet" href="/assets/css/app.css">
 <script src="/assets/js/app.js" defer></script>
+<script type="module" src="/assets/js/covers.js"></script>
+<link rel="stylesheet" href="/assets/css/completion.css">
 </head><body>
 <header class="header"><a href="/" class="brand"><span class="brand-icon">◫</span><span>OT/ICS <b>BASIC LAB</b></span></a>
-<nav aria-label="เมนูหลัก"><a class="button quiet" href="/labs">ห้อง LAB</a>
+<nav aria-label="เมนูหลัก"><a class="button quiet" href="/labs">กลับหน้าหลัก</a>
 <% if(user) { %><a href="/results">ผลการฝึก</a><% if(user.role==='admin') { %><a href="/admin">Admin Portal</a><% } %>
 <a href="/account"><%= user.display_name %></a>
 <form action="/logout" method="post"><input type="hidden" name="csrf" value="<%= csrf %>"><button class="button quiet small">ออกจากระบบ</button></form>
