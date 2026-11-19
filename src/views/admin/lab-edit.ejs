@@ -7,7 +7,7 @@
 <label>เนื้อหาบทเรียน<textarea name="lesson" required maxlength="8000" rows="7"><%= lab.lesson %></textarea></label>
 <label>คำสั่งภารกิจ<textarea name="mission" required maxlength="2000" rows="3"><%= lab.mission %></textarea></label>
 <div class="form-grid"><label>ระดับเป้าหมาย (%)<input name="target" type="number" min="0" max="95" step="5" value="<%= lab.target %>" required><span class="hint">Sensor, SCADA และ Build ใช้ 25–95 ทีละ 5</span></label>
-<label>ฉากประกอบ<select name="image_id"><% for(let i=1;i<=6;i++) { %><option value="<%= i %>" <%= lab.image_id===i?'selected':'' %>>ฉาก <%= i %></option><% } %></select></label>
+<label>ภาพปกในรายการแล็บ<select name="image_id"><% for(let i=1;i<=6;i++) { %><option value="<%= i %>" <%= lab.image_id===i?'selected':'' %>>ฉาก <%= i %></option><% } %></select></label>
 <label>ลำดับแสดงผล<input name="sort_order" type="number" min="0" max="9999" value="<%= lab.sort_order %>" required></label></div>
 <label class="checkbox"><input name="published" type="checkbox" <%= lab.published?'checked':'' %>> เผยแพร่ให้ผู้เรียน</label>
 <p class="hint">ข้อความภารกิจควรสอดคล้องกับแม่แบบและระดับเป้าหมาย การบันทึกสร้างรุ่นเนื้อหาใหม่ ผลการฝึกเดิมยังดูได้ในรายงาน</p>

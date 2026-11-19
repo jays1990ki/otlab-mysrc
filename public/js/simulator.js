@@ -1,10 +1,11 @@
+import { createScene } from './scene.js';
 const root = document.querySelector('#simulator');
 if (root) {
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
   const type = root.dataset.type;
   const target = Number(root.dataset.target);
   const canvas = document.querySelector('#plant-canvas');
-  const context = canvas.getContext('2d');
+
   const trend = document.querySelector('#trend');
   const trendContext = trend.getContext('2d');
   const feedback = document.querySelector('#feedback');
@@ -13,6 +14,42 @@ if (root) {
   let selectedDevice;
   let selectedTerminal;
   let history = [];
+  let playing = false;
+  let autoTimer;
+  let pointerHeld = false;
+  let faulted = false;
+  const scene = createScene({ canvas, overlay:document.querySelector('#scene-hotspots'), type, onAction:send, onMessage:message });
+  root.addEventListener('pointerdown',()=>{pointerHeld=true;});
+  window.addEventListener('pointerup',()=>{pointerHeld=false;});
+  window.addEventListener('pointercancel',()=>{pointerHeld=false;});
+  const guidedSteps = {
+    classify: s => 'ลากภาพอุปกรณ์ด้านบนไปวางในกรอบ IT, OT, IoT หรือ IIoT ด้านล่าง',
+    sensor: s => s.level > target ? 'ระดับเกินเป้าหมายแล้ว กดเริ่มรอบใหม่เพื่อลองอีกครั้ง' : s.level === target ? 'ถึงเป้าหมายแล้ว คลิกด้ามวาล์วเพื่อปิดน้ำ' : s.valve ? 'น้ำกำลังไหล สังเกตระดับน้ำ เมื่อถึง '+target+'% ให้คลิกวาล์วปิด' : 'คลิกด้ามวาล์วกลางภาพเพื่อเริ่มเติมน้ำ',
+    plc: s => s.emergency ? 'คลิก E-STOP อีกครั้งเพื่อปล่อยปุ่มฉุกเฉิน' : !s.source ? 'คลิกถังต้นทางด้านซ้ายให้มีน้ำก่อน START' : !s.ran && s.full ? 'คลิกถังรับด้านขวาเพื่อยกเลิกสัญญาณเต็มก่อน START' : !s.ran ? 'คลิกมอเตอร์เพื่อ START สังเกตใบพัดหมุน' : 'คลิกถังรับด้านขวาเพื่อจำลองถังเต็ม แล้วดู Interlock หยุดมอเตอร์',
+    hmi: s => !s.command ? 'คลิก START บนจอ HMI' : !s.alarmSeen ? 'รอ 3 ขั้นเวลาเพื่อดู Alarm เมื่อ Feedback ยังไม่มา' : !s.feedback ? 'คลิก FEEDBACK ด้านล่างซ้ายเพื่อยืนยันว่าอุปกรณ์ทำงาน' : 'คลิก ACK ALARM ด้านล่างขวาเพื่อรับทราบเหตุ',
+    scada: s => !s.sent ? 'คลิกถังด้านซ้ายเพิ่มระดับถึง '+target+'% แล้วคลิกส่งข้อมูล' : !s.outageSeen ? 'คลิกตัดการสื่อสาร แล้วลองคลิกส่งข้อมูล สังเกตค่าที่ค้างบน SCADA' : !s.connected ? 'คลิกเชื่อมต่อกลับ แล้วคลิกส่งข้อมูลอีกครั้ง' : 'คลิกส่งข้อมูลเพื่อยืนยันการสื่อสารกลับมาแล้ว',
+    build: s => !run.result.checks.slice(0,3).every(check=>check.done) ? 'ลากขั้ว SENSOR OUT → PLC input, PLC OUT → Pump, HMI OUT → PLC' : !s.power ? 'ตรวจสายทั้งสาม แล้วคลิกเปิดระบบด้านบน' : 'สังเกตมอเตอร์และระดับน้ำ ระบบหยุดอัตโนมัติเมื่อถึง '+target+'%',
+    conveyor: s => s.parcel===null ? ((s.last ? s.last+' — ' : '')+'ลากกล่องจากชั้นด้านบนมาวางบริเวณรับกล่องบนสายพาน') : !s.moving ? 'คลิกมอเตอร์ด้านล่างเพื่อให้สายพานเดิน' : 'ดูสีของกล่อง คลิกแขนคัดแยกให้ BLUE → GOOD และ RED → REJECT'
+  };
+  function needsTick() {
+    if (!run || run.status!=='active') return false;
+    const s=run.state;
+    return type==='sensor' ? s.valve && s.level<target :
+      type==='hmi' ? s.command && !s.feedback && !s.alarm :
+      type==='build' ? run.pump :
+      type==='conveyor' ? s.moving && s.parcel!==null : false;
+  }
+  function schedule() {
+    clearTimeout(autoTimer);
+    label('auto',playing?'⏸ หยุดชั่วคราว':'▶ เล่นการจำลอง');
+    if(run?.status==='active') label('guide',guidedSteps[type](run.state)+(needsTick()&&!playing?' — กด ▶ เล่นการจำลอง เพื่อเดินเวลาต่อ':''));
+    if (!playing || faulted || !needsTick() || document.hidden) return;
+    autoTimer=setTimeout(async()=>{
+      if(pointerHeld || busy) {schedule();return;}
+      await send({kind:'tick'},true);
+    },1200);
+  }
+  document.addEventListener('visibilitychange',schedule);
   const label = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
   async function request(path, body) {
     const response = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf}, body:JSON.stringify(body) });
@@ -26,31 +63,37 @@ if (root) {
   function lock(value) {
     busy = value;
     for (const element of root.querySelectorAll('button,input')) element.disabled = value || (run?.status==='passed' && element.id !== 'restart');
+    scene.setEnabled(!value && !faulted && run?.status==='active');
   }
   function message(text, danger = false) {
     feedback.textContent = text;
     feedback.classList.toggle('danger',danger);
   }
   async function start(reset = false) {
+    clearTimeout(autoTimer);
     lock(true);
     try {
       run = await request('/api/labs/'+root.dataset.lab+'/start',{reset});
       history = [];
+      faulted=false;playing=false;
       render();
-      message('พร้อมฝึก เลือกอุปกรณ์หรือส่งคำสั่งจากแผงควบคุม');
+      message('พร้อมฝึก คลิกหรือลากอุปกรณ์บนภาพตามคำแนะนำด้านบน');
     } catch(error) { message(error.message,true); }
-    finally { lock(false); }
+    finally { lock(false);schedule(); }
   }
-  async function send(action) {
-    if (busy || !run || run.status !== 'active') return;
+  async function send(action, automatic=false) {
+    if (busy || faulted || !run || run.status !== 'active') return;
+    clearTimeout(autoTimer);
     lock(true);
     try {
       run = await request('/api/runs/'+run.id+'/action',{version:run.version,action_id:actionId(),action});
+      if(!automatic && ['valve','start','power','motor','load'].includes(action.kind)) playing=true;
       render();
-      message(run.result.passed ? '✓ ผ่านภารกิจแล้ว บันทึกผลเรียบร้อย' : 'รับคำสั่งแล้ว ตรวจสถานะและเงื่อนไขภารกิจด้านล่าง');
+      message(run.result.passed ? '✓ ผ่านภารกิจแล้ว บันทึกผลเรียบร้อย' : (type==='conveyor' && run.state.last ? run.state.last : guidedSteps[type](run.state)));
     } catch(error) {
+      faulted=true;playing=false;
       message(error.message+' หากคำสั่งถูกส่งไปแล้ว ให้โหลดหน้าใหม่เพื่ออ่านสถานะล่าสุด',true);
-    } finally { lock(false); }
+    } finally { lock(false);schedule(); }
   }
   const telemetry = (entries) => {
     const nodes = entries.map(([name,value])=>{
@@ -63,65 +106,6 @@ if (root) {
     });
     document.querySelector('#telemetry').replaceChildren(...nodes);
   };
-  function box(x,y,w,h,title,sub,color='#5ee3e9') {
-    context.fillStyle='#132735';
-    context.strokeStyle=color;
-    context.lineWidth=2;
-    context.beginPath();context.roundRect(x,y,w,h,10);context.fill();context.stroke();
-    context.fillStyle='#eaf3f7';context.font='bold 18px system-ui';context.textAlign='center';
-    context.fillText(title,x+w/2,y+32);
-    context.fillStyle=color;context.font='15px system-ui';
-    context.fillText(sub,x+w/2,y+60);
-  }
-  function tank(x,y,level,title) {
-    context.fillStyle='#192c39';context.strokeStyle='#8fb5c6';context.lineWidth=3;
-    context.beginPath();context.roundRect(x,y,130,230,16);context.fill();context.stroke();
-    context.save();context.beginPath();context.roundRect(x+4,y+4,122,222,12);context.clip();
-    context.fillStyle='#1b9faf';context.fillRect(x+4,y+226-level*2.22,122,level*2.22);context.restore();
-    context.textAlign='center';context.font='bold 24px system-ui';context.fillStyle='#fff';
-    context.fillText(Math.round(level)+'%',x+65,y+122);
-    context.font='16px system-ui';context.fillStyle='#b2cad7';context.fillText(title,x+65,y-16);
-  }
-  function wire(x1,y1,x2,y2,on) {
-    context.strokeStyle=on?'#5ee3e9':'#435d6d';context.lineWidth=on?5:3;
-    context.beginPath();context.moveTo(x1,y1);context.lineTo(x2,y2);context.stroke();
-  }
-  function drawPlant(state) {
-    const w=canvas.width,h=canvas.height;
-    context.clearRect(0,0,w,h);
-    context.fillStyle='#091923';context.fillRect(0,0,w,h);
-    context.strokeStyle='#17303b';context.lineWidth=1;
-    for(let x=0;x<w;x+=40){ context.beginPath();context.moveTo(x,0);context.lineTo(x,h);context.stroke(); }
-    for(let y=0;y<h;y+=40){ context.beginPath();context.moveTo(0,y);context.lineTo(w,y);context.stroke(); }
-    if(type==='classify') {
-      const assignments=state.assignments;
-      ['ERP','PLC','SMART LIGHT','WIRELESS SENSOR'].forEach((title,i)=>box(60+(i%2)*410,55+Math.floor(i/2)*175,350,110,title,assignments[i] || 'SELECT CATEGORY',assignments[i]?'#82e3aa':'#8ba9b9'));
-    } else if(type==='build') {
-      const nodes={sensor:[40,70,190,85,'SENSOR','Level '+state.level+'%'],plc:[345,150,190,90,'PLC',run.pump?'OUTPUT ON':'OUTPUT OFF'],hmi:[40,280,190,85,'HMI',state.power?'POWER ON':'POWER OFF'],pump:[650,150,190,90,'PUMP',run.pump?'RUNNING':'STOPPED']};
-      if(state.wires.sensor) wire(230,112,state.wires.sensor==='PLC input'?345:650,190,state.wires.sensor==='PLC input');
-      if(state.wires.plc) wire(535,190,state.wires.plc==='Pump'?650:230,190,state.wires.plc==='Pump');
-      if(state.wires.hmi) wire(230,322,state.wires.hmi==='PLC'?345:650,220,state.wires.hmi==='PLC');
-      for(const [name,node] of Object.entries(nodes)) box(...node,name==='pump'&&run.pump?'#82e3aa':'#5ee3e9');
-      context.textAlign='center';context.font='18px system-ui';context.fillStyle='#b7cbd5';context.fillText('TARGET '+target+'%  /  LEVEL '+state.level+'%',490,345);
-    } else if(type==='scada') {
-      tank(75,95,state.level,'STATION A / RTU');
-      wire(210,210,600,210,state.connected);
-      box(530,130,280,150,'SCADA / LAST RECEIVED',state.remote+'%  '+(state.remote>=target?'HIGH':'NORMAL'),state.remote>=target?'#ffc36e':'#82e3aa');
-      context.font='18px system-ui';context.fillStyle=state.connected?'#82e3aa':'#ffad91';context.textAlign='center';
-      context.fillText(state.connected?'COMMUNICATION ONLINE':'COMMUNICATION LOST / STALE DATA',490,340);
-    } else {
-      const level=type==='sensor'?state.level:type==='plc'?(state.full?100:30):45;
-      tank(70,95,80,'SUPPLY TANK');
-      tank(670,95,level,'PROCESS TANK');
-      const on=type==='sensor'?state.valve:run.pump;
-      wire(200,265,670,265,on);
-      box(320,205,240,100,type==='sensor'?'INLET VALVE':'PUMP',on?'OPEN / RUNNING':'CLOSED / STOPPED',on?'#82e3aa':'#8ba9b9');
-      if(type==='plc') box(310,55,260,95,'PLC / INTERLOCK',state.full?'HIGH LEVEL / STOP':state.emergency?'EMERGENCY / STOP':state.source?'SOURCE OK':'SOURCE LOW',state.full||state.emergency?'#ffc36e':'#5ee3e9');
-      if(type==='hmi') box(310,55,260,95,'HMI',state.alarm?'ALARM: NO FEEDBACK':state.command&&!state.feedback?'WAITING FEEDBACK':run.pump?'RUNNING':'STOPPED',state.alarm?'#ffc36e':'#5ee3e9');
-      context.textAlign='center';context.font='16px system-ui';context.fillStyle='#a8c3d2';
-      context.fillText(type==='sensor'?'LEVEL SENSOR → '+state.level+'%':type==='plc'?'INPUT → LOGIC → OUTPUT':'COMMAND → FEEDBACK → STATUS',440,370);
-    }
-  }
   function drawTrend() {
     trendContext.clearRect(0,0,800,130);
     trendContext.fillStyle='#091923';trendContext.fillRect(0,0,800,130);
@@ -131,6 +115,20 @@ if (root) {
     trendContext.strokeStyle='#5ee3e9';trendContext.lineWidth=2;trendContext.beginPath();
     history.forEach((v,i)=>{const x=30+i*750/Math.max(29,history.length-1),y=110-v*.8;if(i===0)trendContext.moveTo(x,y);else trendContext.lineTo(x,y);});
     trendContext.stroke();
+  }
+  function updateHistory() {
+    const body=document.querySelector('#lab-history');
+    let row=[...body.rows].find(item=>item.dataset.runId===run.id);
+    if(!row) {
+      row=document.createElement('tr');row.dataset.runId=run.id;
+      for(let i=0;i<4;i++)row.append(document.createElement('td'));
+      row.cells[0].textContent=run.started_at ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(run.started_at.replace(' ','T')+'Z')) : 'รอบปัจจุบัน';
+      row.cells[1].textContent=run.revision;
+      body.prepend(row);
+      while(body.rows.length>5)body.lastElementChild.remove();
+    }
+    row.cells[2].textContent=run.status==='passed'?'ผ่าน':run.status==='active'?'กำลังฝึก':'จบรอบ';
+    row.cells[3].textContent=run.result.score+'%';
   }
   function render() {
     const s=run.state;
@@ -150,6 +148,8 @@ if (root) {
     else if(type==='scada') {
       const slider=document.querySelector('#station-level');slider.value=s.level;label('level-output',s.level+'%');
       telemetry([['RTU LEVEL',s.level+'%'],['SCADA LEVEL',s.remote+'%'],['QUALITY',s.connected?'ONLINE':'STALE']]);
+    } else if(type==='conveyor') {
+      telemetry([['คัดถูก',run.state.sorted.length+' / 3'],['MOTOR',s.moving?'RUN':'STOP'],['GATE',s.gate.toUpperCase()]]);
     } else if(type==='build') {
       telemetry([['POWER',s.power?'ON':'OFF'],['LEVEL',s.level+'%'],['PUMP',run.pump?'RUN':'STOP']]);
       document.querySelector('#wire-list').replaceChildren(...Object.entries(s.wires).map(([from,to])=>{const p=document.createElement('p');p.textContent=from+' → '+to;return p;}));
@@ -158,9 +158,10 @@ if (root) {
     document.querySelector('#checks').replaceChildren(...nodes);
     const level=s.level ?? (type==='plc'?(s.full?100:30):undefined);
     if(level!==undefined) history=[...history,level].slice(-30);
-    drawPlant(s);drawTrend();
-    document.querySelector('#tick').hidden=!['sensor','hmi','build'].includes(type);
-    document.querySelector('.scene-actions').hidden=!['sensor','hmi','build'].includes(type);
+    updateHistory();scene.update(run);drawTrend();
+    label('guide',run.status==='passed'?'✓ ผ่านภารกิจแล้ว! ลองแล็บถัดไปหรือเริ่มรอบใหม่':guidedSteps[type](s));
+    document.querySelector('#tick').hidden=!['sensor','hmi','build','conveyor'].includes(type);
+    document.querySelector('.scene-actions').hidden=run.status==='passed' || !['sensor','hmi','build','conveyor'].includes(type);
     document.querySelector('.chart-wrap').hidden=!['sensor','scada','build'].includes(type);
   }
   root.addEventListener('click',event=>{
@@ -186,6 +187,7 @@ if (root) {
       send({kind:'wire',from:selectedTerminal,to:button.dataset.to});
     }
   });
+  document.querySelector('#auto').addEventListener('click',()=>{playing=!playing;schedule();});
   document.querySelector('#tick').addEventListener('click',()=>send({kind:'tick'}));
   document.querySelector('#restart').addEventListener('click',()=>{if(window.confirm('เริ่มรอบใหม่? รอบปัจจุบันจะจบลงและประวัติยังอยู่'))start(true);});
   document.querySelector('#station-level')?.addEventListener('change',event=>send({kind:'level',value:Number(event.target.value)}));

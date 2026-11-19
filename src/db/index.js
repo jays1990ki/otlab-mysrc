@@ -67,7 +67,7 @@ async function migrate() {
     if (!migrations) {
       await connection.beginTransaction();
       try {
-        for (const [index, lab] of templates.entries()) {
+        for (const [index, lab] of templates.slice(0,6).entries()) {
           await query('INSERT INTO ot_labs(title,summary,lesson,mission,simulator,image_id,target,sort_order) VALUES(?,?,?,?,?,?,?,?)',
             [lab.title,lab.summary,lab.lesson,lab.mission,lab.key,lab.image,lab.target,index+1],connection);
         }
@@ -76,12 +76,22 @@ async function migrate() {
         await connection.commit();
       } catch (error) { await connection.rollback(); throw error; }
     }
+    if (!await first('SELECT version FROM ot_migrations WHERE version=2', [], connection)) {
+      await connection.beginTransaction();
+      try {
+        const lab = templates.find(template => template.key === 'conveyor');
+        await query('INSERT INTO ot_labs(title,summary,lesson,mission,simulator,image_id,target,sort_order) VALUES(?,?,?,?,?,?,?,?)',
+          [lab.title,lab.summary,lab.lesson,lab.mission,lab.key,lab.image,lab.target,7],connection);
+        await query('INSERT INTO ot_migrations(version) VALUES(2)', [], connection);
+        await connection.commit();
+      } catch (error) { await connection.rollback(); throw error; }
+    }
     if (!await first("SELECT id FROM ot_users WHERE role='admin' LIMIT 1", [], connection)) {
       const username = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
       const password = process.env.ADMIN_PASSWORD;
       if (!validName(username) || !validPassword(password)) throw new Error('Set ADMIN_PASSWORD with 12–128 characters for first installation');
       await query("INSERT INTO ot_users(username,display_name,password_hash,role) VALUES(?,?,?,'admin')", [username,'Administrator',await hashPassword(password)],connection);
-      await audit(username,'SYSTEM_INSTALLED','v1.1.0',connection);
+      await audit(username,'SYSTEM_INSTALLED','v1.2.0',connection);
     }
   } finally {
     if (locked) await connection.query("SELECT RELEASE_LOCK(CONCAT('ot_lab_', LEFT(SHA2(DATABASE(),256),40)))");

@@ -11,10 +11,10 @@ function visibleLab(req,id,connection) {
 export function publicRun(run) {
   const state = typeof run.state === 'string' ? JSON.parse(run.state) : run.state;
   return { id:run.id, version:run.version, state, actions:run.actions, status:run.status, simulator:run.simulator,
-    target:run.target, pump:pumpOn(run.simulator,state,run.target), result:evaluate(run.simulator,state,run.target) };
+    started_at:run.started_at || null, revision:run.revision, target:run.target, pump:pumpOn(run.simulator,state,run.target), result:evaluate(run.simulator,state,run.target) };
 }
 labRouter.get('/',async(req,res)=>{
-  const labs = await query('SELECT id,title,summary,image_id FROM ot_labs WHERE published=1 AND archived=0 ORDER BY sort_order,id LIMIT 6');
+  const labs = await query('SELECT id,title,summary,image_id FROM ot_labs WHERE published=1 AND archived=0 ORDER BY sort_order,id LIMIT 12');
   res.render('home',{title:res.locals.settings.site_name,labs});
 });
 labRouter.get('/labs',requireUser,async(req,res)=>{
@@ -45,7 +45,7 @@ labRouter.post('/api/labs/:id/start',requireUser,async(req,res)=>{
     const state=JSON.stringify(initialState(lab.simulator));
     await query('INSERT INTO ot_runs(id,user_id,lab_id,revision,simulator,target,state) VALUES(?,?,?,?,?,?,?)',[id,req.user.id,lab.id,lab.revision,lab.simulator,lab.target,state],connection);
     await audit(req.user.username,'LAB_STARTED','Lab '+lab.id,connection);
-    return publicRun({id,state,version:0,actions:0,status:'active',simulator:lab.simulator,target:lab.target});
+    return publicRun(await first('SELECT * FROM ot_runs WHERE id=?',[id],connection));
   });
   res.json(result);
 });
